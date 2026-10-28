@@ -43,19 +43,11 @@ window.__ModuleLoader__.load({
 		 * Preference key for the render mode. Namespaced by package name so a second
 		 * diagram plugin cannot read or overwrite this one's choice.
 		 */
-		const MODE_KEY = `${PKG}.mode`;
-		/** The key this plugin used before it became a published package. */
-		const LEGACY_MODE_KEY = 'dsh-mermaid.mode';
+		const MODE_KEY = `${PKG}.mode.v2`;
 		/** Render modes, in the order the settings row offers them. */
 		const MODES = ['manual', 'visible', 'always'];
-		/**
-		 * Default: render nothing until the reader asks.
-		 *
-		 * The eager modes cost a 3.5 MB runtime plus one layout pass per diagram, and
-		 * a transcript can hold dozens. Reading a conversation must not pay that; the
-		 * card shows its source and one button instead.
-		 */
-		const DEFAULT_MODE = 'manual';
+		/** 默认在源码稳定后自动展示图形，仍允许用户选择手动或滚动可见模式。 */
+		const DEFAULT_MODE = 'always';
 		/** Refuse pathological diagrams before they reach Mermaid. */
 		const MAX_SOURCE_CHARS = 50000;
 		/**
@@ -87,6 +79,7 @@ window.__ModuleLoader__.load({
 				zoomIn: '放大',
 				zoomOut: '缩小',
 				zoomFit: '适应窗口',
+				fullscreen: '全屏',
 				viewerHint: '拖动平移 · 滚轮缩放 · 双击适应窗口 · Esc 关闭',
 				settingsTitle: 'Mermaid 图表',
 				modeManual: '手动',
@@ -113,6 +106,7 @@ window.__ModuleLoader__.load({
 				zoomIn: 'Zoom in',
 				zoomOut: 'Zoom out',
 				zoomFit: 'Fit to window',
+				fullscreen: 'Fullscreen',
 				viewerHint: 'Drag to pan · scroll to zoom · double-click to fit · Esc to close',
 				settingsTitle: 'Mermaid diagrams',
 				modeManual: 'On demand',
@@ -145,17 +139,11 @@ window.__ModuleLoader__.load({
 		//#endregion
 
 		//#region preference
-		/** Read the render mode; an unknown or unreadable value falls back to manual. */
+		/** 读取新版偏好；首次使用自动渲染，不继承旧版默认的手动模式。 */
 		function readMode() {
 			try {
 				const stored = window.localStorage.getItem(MODE_KEY);
 				if (MODES.includes(stored)) return stored;
-				// One-time migration from the pre-release key, so an existing choice sticks.
-				const legacy = window.localStorage.getItem(LEGACY_MODE_KEY);
-				if (MODES.includes(legacy)) {
-					window.localStorage.setItem(MODE_KEY, legacy);
-					return legacy;
-				}
 				return DEFAULT_MODE;
 			} catch {
 				return DEFAULT_MODE;
@@ -490,7 +478,11 @@ window.__ModuleLoader__.load({
 @media (prefers-reduced-motion: reduce){.dsh-mdm-pill{transition:none}}
 .dsh-mdm-body{padding:12px}
 .dsh-mdm-diagram[hidden],.dsh-mdm-content[hidden],.dsh-mdm-source[hidden]{display:none}
-.dsh-mdm-diagram{display:flex;justify-content:flex-start;overflow-x:auto}
+.dsh-mdm-diagram{display:flex;justify-content:flex-start;overflow:auto;max-height:70vh;cursor:grab;touch-action:none}
+.dsh-mdm-diagram[data-dragging="true"]{cursor:grabbing;user-select:none}
+.dsh-mdm-actions{display:inline-flex;align-items:center;gap:4px}
+.dsh-mdm-actions[hidden]{display:none}
+.dsh-mdm-tools{flex-wrap:wrap}
 .dsh-mdm-svg{width:100%;margin-inline:auto}
 .dsh-mdm-svg svg{display:block;width:100%;height:auto;max-width:100%}
 .dsh-mdm-msg{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#6b7280)}
@@ -585,6 +577,7 @@ window.__ModuleLoader__.load({
 			entry.pre.hidden = diagram;
 			entry.source.hidden = diagram;
 			entry.diagram.hidden = !diagram;
+			if (entry.actions) entry.actions.hidden = !diagram;
 			entry.content.hidden = entry.source.hidden && entry.diagram.hidden;
 			if (entry.state === 'error') entry.msg.textContent = t('renderFailed');
 			else if (entry.state === 'rendering') entry.msg.textContent = t('rendering');
@@ -613,7 +606,7 @@ window.__ModuleLoader__.load({
 			const svg = entry.canvas.querySelector('svg');
 			if (svg === null) return;
 			const size = naturalSize(svg);
-			const scale = Math.min(1, Math.max(0.5, available / size.width));
+			const scale = entry.zoom ?? Math.min(1, available / size.width);
 			entry.canvas.style.transform = '';
 			entry.canvas.style.width = `${size.width * scale}px`;
 			entry.canvas.style.flex = '0 0 auto';
@@ -622,7 +615,45 @@ window.__ModuleLoader__.load({
 			svg.style.height = 'auto';
 		}
 
-		/** Build the toolbar and the diagram card that accompany one code block. */
+		/** 导出原始比例的 SVG 或 PNG；及时释放下载和图片解码使用的 URL。 */
+		async function exportDiagram(entry, format) {
+			const svg = entry.canvas.querySelector('svg');
+			if (!svg) return;
+			const size = naturalSize(svg);
+			const clone = svg.cloneNode(true);
+			clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+			clone.setAttribute('width', String(size.width));
+			clone.setAttribute('height', String(size.height));
+			clone.style.width = `${size.width}px`;
+			clone.style.height = `${size.height}px`;
+			let blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' });
+			if (format === 'png') {
+				const imageUrl = URL.createObjectURL(blob);
+				try {
+					const img = new Image();
+					img.src = imageUrl;
+					await img.decode();
+					const canvas = document.createElement('canvas');
+					const ratio = Math.min(2, 8192 / Math.max(size.width, size.height));
+					canvas.width = Math.ceil(size.width * ratio);
+					canvas.height = Math.ceil(size.height * ratio);
+					const context = canvas.getContext('2d');
+					context.fillStyle = knownSurface(entry).color;
+					context.fillRect(0, 0, canvas.width, canvas.height);
+					context.drawImage(img, 0, 0, canvas.width, canvas.height);
+					blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+					if (!blob) throw new Error('PNG export failed');
+				} finally { URL.revokeObjectURL(imageUrl); }
+			}
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = `mermaid.${format}`;
+			link.click();
+			window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+		}
+
+		/** 构建图表卡片、缩放导出工具栏和拖拽平移交互。 */
 		function buildCard(entry) {
 			const bar = document.createElement('div');
 			bar.className = 'dsh-mdm-bar';
@@ -656,7 +687,38 @@ window.__ModuleLoader__.load({
 			});
 			const tools = document.createElement('div');
 			tools.className = 'dsh-mdm-tools';
-			tools.append(button, expand);
+			tools.append(button);
+			const actions = document.createElement('span');
+			actions.className = 'dsh-mdm-actions';
+			/** 为卡片添加一个带可访问名称的操作按钮。 */
+			const action = (label, callback) => {
+				const control = document.createElement('button');
+				control.type = 'button';
+				control.className = 'dsh-mdm-btn';
+				control.textContent = label;
+				control.setAttribute('aria-label', label);
+				control.addEventListener('click', callback);
+				actions.append(control);
+			};
+			/** 调整当前卡片缩放，适应和原始比例操作同时复位滚动位置。 */
+			const zoom = (value) => {
+				entry.zoom = value;
+				applyZoom(entry);
+			};
+			action('−', () => zoom(Math.max(0.1, (entry.zoom ?? entry.canvas.clientWidth / naturalSize(entry.canvas.querySelector('svg')).width) / 1.25)));
+			action('+', () => zoom(Math.min(8, (entry.zoom ?? entry.canvas.clientWidth / naturalSize(entry.canvas.querySelector('svg')).width) * 1.25)));
+			action(t('zoomFit'), () => { zoom(null); entry.diagram.scrollTo?.(0, 0); });
+			action('1:1', () => { zoom(1); entry.diagram.scrollTo?.(0, 0); });
+			expand.textContent = t('fullscreen');
+			actions.append(expand);
+			for (const format of ['svg', 'png']) action(format.toUpperCase(), () => {
+				exportDiagram(entry, format).catch((error) => {
+					entry.error.textContent = String(error.message ?? error);
+					entry.error.hidden = false;
+				});
+			});
+			entry.actions = actions;
+			tools.append(actions);
 			bar.append(title, tools);
 
 			const body = document.createElement('div');
@@ -673,6 +735,26 @@ window.__ModuleLoader__.load({
 			const canvas = document.createElement('div');
 			canvas.className = 'dsh-mdm-svg';
 			diagram.append(canvas);
+			let drag = null;
+			diagram.addEventListener('pointerdown', (event) => {
+				if (event.button !== 0 || event.target.closest('a')) return;
+				drag = { x: event.clientX, y: event.clientY, left: diagram.scrollLeft, top: diagram.scrollTop };
+				diagram.setPointerCapture?.(event.pointerId);
+				diagram.dataset.dragging = 'true';
+				event.preventDefault();
+			});
+			diagram.addEventListener('pointermove', (event) => {
+				if (!drag) return;
+				diagram.scrollLeft = drag.left - (event.clientX - drag.x);
+				diagram.scrollTop = drag.top - (event.clientY - drag.y);
+			});
+			/** 结束拖拽并释放指针捕获，包括取消和丢失捕获的情况。 */
+			const endDrag = (event) => {
+				drag = null;
+				delete diagram.dataset.dragging;
+				if (diagram.hasPointerCapture?.(event.pointerId)) diagram.releasePointerCapture(event.pointerId);
+			};
+			for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) diagram.addEventListener(type, endDrag);
 			// Double-click is the gesture people try first on a small diagram.
 			diagram.addEventListener('dblclick', () => openLightbox(entry));
 			const error = document.createElement('p');

@@ -5,7 +5,7 @@
 [![DSH](https://img.shields.io/badge/DSH-0.2.0--rc.2-4b5563)](https://github.com/deepseek-ai/DeepSeek-Harness)
 [![install](https://img.shields.io/badge/dsh%20plugin%20add-dsh--mermaid--plus-5b8def)](#install)
 
-Mermaid diagrams for [DeepSeek Harness](https://github.com/deepseek-ai/DeepSeek-Harness) — rendered **on demand** by default, so a transcript full of diagrams costs nothing until you ask for one.
+Mermaid diagrams for [DeepSeek Harness](https://github.com/deepseek-ai/DeepSeek-Harness) — rendered automatically by default, with inline zoom, drag to pan, fullscreen viewing, and SVG/PNG export.
 
 [中文说明](#中文说明)
 
@@ -27,9 +27,11 @@ Fullscreen viewer, light and dark. The sheet takes the palette the diagram was r
 
 A fenced ` ```mermaid ` block in the conversation (or in a Markdown file preview) becomes a card:
 
-- **On demand (default)** — the source stays visible and a `Diagram` button waits in the card header. The 3.5 MB Mermaid runtime is **not downloaded** and no layout work happens until you press it.
+- **On demand** — the source stays visible and a `Diagram` button waits in the card header. The offline Mermaid runtime is loaded only when requested.
 - **When visible** — a diagram renders the first time its card scrolls into view.
-- **Always** — renders as soon as the block appears (the classic behaviour).
+- **Always (default)** — renders when the source settles, then displays the diagram. The new preference key resets the previous default manual mode once; subsequent choices are saved.
+
+The inline toolbar offers −, +, fit, 1:1, fullscreen, SVG, and PNG. Drag inside the diagram viewport to pan. SVG preserves natural dimensions; PNG uses the current background with a maximum long edge of 8192 pixels.
 
 Every rendered diagram can be opened **fullscreen** with zoom and pan, which is the point: a wide flowchart squeezed into the message column is unreadable, while the same diagram at natural size is fine.
 

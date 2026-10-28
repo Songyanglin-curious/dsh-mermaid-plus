@@ -115,6 +115,8 @@ globalThis.__dshMermaidImport = async (specifier) => {
 };
 
 // Evaluate the shipped bundle exactly as the browser would.
+// 手动模式仍需回归覆盖；默认自动模式在真实浏览器测试中验证。
+window.localStorage.setItem(`${PKG}.mode.v2`, 'manual');
 new Function('window', readFileSync(join(root, 'client.js'), 'utf8'))(window);
 
 assert.equal(registrations.length, 1, 'the bundle must register exactly one factory');
@@ -311,7 +313,7 @@ console.log('ok   cache              switching views reuses the rendered diagram
 //#endregion
 
 //#region viewer
-const expand = [...card.querySelectorAll('.dsh-mdm-btn')].find((node) => node.textContent === 'Expand');
+const expand = [...card.querySelectorAll('.dsh-mdm-btn')].find((node) => node.textContent === 'Fullscreen');
 assert.ok(expand !== undefined, 'a rendered card must offer the enlarge control');
 assert.equal(expand.hidden, false, 'the enlarge control must appear once a diagram exists');
 expand.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));

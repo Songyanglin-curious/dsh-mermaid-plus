@@ -83,6 +83,8 @@ record('module table', typeof React.createElement === 'function' && typeof creat
 const requestedMode = new URLSearchParams(location.search).get('mode');
 localStorage.setItem('dsh-mermaid.mode', requestedMode ?? 'always');
 localStorage.setItem('dsh-mermaid-plus.mode', requestedMode ?? 'always');
+localStorage.removeItem('dsh-mermaid-plus.mode.v2');
+if (requestedMode) localStorage.setItem('dsh-mermaid-plus.mode.v2', requestedMode);
 await import('./client.js');
 record('client bundle registers', factories.has('dsh-mermaid-plus'), [...factories.keys()].join(','));
 
@@ -196,6 +198,45 @@ record('palette source readable', paletteProbe !== '', `color-scheme=${palettePr
 
 // 7. The Diagram/Code toggle switches views.
 const firstCard = cards()[0];
+// 验证内联工具栏缩放、比例恢复及导出文件的真实内容。
+const controls = [...firstCard.querySelectorAll('.dsh-mdm-actions button')];
+const control = (label) => controls.find((node) => node.textContent === label);
+record('inline toolbar complete', ['−', '+', 'Fit to window', '1:1', 'Fullscreen', 'SVG', 'PNG'].every((label) => control(label)));
+const inlineCanvas = firstCard.querySelector('.dsh-mdm-svg');
+const initialWidth = inlineCanvas.getBoundingClientRect().width;
+control('+').click();
+record('inline zoom enlarges', inlineCanvas.getBoundingClientRect().width > initialWidth);
+control('1:1').click();
+record('inline actual size', Math.abs(inlineCanvas.getBoundingClientRect().width - firstCard.querySelector('svg').viewBox.baseVal.width) < 2);
+const viewport = firstCard.querySelector('.dsh-mdm-diagram');
+control('+').click(); control('+').click();
+viewport.dispatchEvent(new PointerEvent('pointerdown', { button: 0, clientX: 300, clientY: 200, pointerId: 1 }));
+viewport.dispatchEvent(new PointerEvent('pointermove', { clientX: 100, clientY: 100, pointerId: 1 }));
+record('inline drag pans', viewport.scrollLeft > 0);
+viewport.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 1 }));
+record('inline drag cancellation releases', !viewport.hasAttribute('data-dragging'));
+control('Fit to window').click();
+record('inline fit resets', Math.abs(inlineCanvas.getBoundingClientRect().width - initialWidth) < 2 && viewport.scrollLeft === 0);
+const originalCreateUrl = URL.createObjectURL;
+const originalAnchorClick = HTMLAnchorElement.prototype.click;
+const exportBlobs = new Map();
+const downloads = [];
+URL.createObjectURL = (blob) => { const url = originalCreateUrl.call(URL, blob); exportBlobs.set(url, blob); return url; };
+HTMLAnchorElement.prototype.click = function () { downloads.push({ name: this.download, blob: exportBlobs.get(this.href) }); };
+try {
+  control('SVG').click();
+  await waitFor(() => downloads.length === 1);
+  const svgText = await downloads[0].blob.text();
+  record('SVG export contains diagram', downloads[0].name === 'mermaid.svg' && new DOMParser().parseFromString(svgText, 'image/svg+xml').querySelectorAll('g.node').length > 0);
+  control('PNG').click();
+  await waitFor(() => downloads.length === 2, 15000);
+  const png = downloads[1]?.blob;
+  const signature = png ? new Uint8Array(await png.arrayBuffer()).slice(0, 8).join(',') : '';
+  record('PNG export is valid PNG', signature === '137,80,78,71,13,10,26,10');
+} finally {
+  URL.createObjectURL = originalCreateUrl;
+  HTMLAnchorElement.prototype.click = originalAnchorClick;
+}
 const firstPre = firstCard.querySelector('.dsh-mdm-source pre');
 const button = firstCard.querySelector('.dsh-mdm-btn');
 const hiddenBefore = firstPre.hidden;
@@ -228,7 +269,7 @@ record('browser half reports lifecycle events', (window.__dshMermaidReports ?? [
   `${(window.__dshMermaidReports ?? []).length} report(s), first=${window.__dshMermaidReports?.[0] ?? '-'}`);
 
 // 9. The viewer: a rendered diagram opens enlarged, zooms, and closes.
-const expandButton = [...firstCard.querySelectorAll('.dsh-mdm-btn')].find((node) => node.textContent === 'Expand');
+const expandButton = [...firstCard.querySelectorAll('.dsh-mdm-btn')].find((node) => node.textContent === 'Fullscreen');
 record('expand control present', expandButton !== undefined && !expandButton.hidden);
 expandButton.click();
 const viewer = await waitFor(() => document.querySelector('.dsh-mdm-lb') !== null, 3000);
@@ -318,7 +359,7 @@ record('unmount leaves every source block', restored === 4, `${restored} mermaid
 // `?viewer=1` leaves the viewer open for a screenshot.
 if (new URLSearchParams(location.search).has('viewer')) {
   const first = document.querySelector('.dsh-mdm');
-  [...first.querySelectorAll('.dsh-mdm-btn')].find((node) => node.textContent === 'Expand')?.click();
+  [...first.querySelectorAll('.dsh-mdm-btn')].find((node) => node.textContent === 'Fullscreen')?.click();
 }
 document.title = `E2E ${results.filter((r) => r.ok).length}/${results.length}`;
 window.__E2E__ = results;
