@@ -3,3 +3,6 @@ diagnostics.json
 test/e2e/runtime/
 .DS_Store
 *.log
+output/
+.playwright-mcp/
+*.tgz

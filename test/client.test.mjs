@@ -89,7 +89,9 @@ const importedModules = [];
 const runtime = {
 	initializeCount: 0,
 	renderCount: 0,
-	async initialize() {
+	/** 记录实际初始化配置，用于验证布局、主题和安全边界。 */
+	async initialize(config) {
+		this.config = config;
 		this.initializeCount += 1;
 	},
 	async render(id, source) {
@@ -285,6 +287,12 @@ assert.equal(
 	'the runtime must load on first use',
 );
 assert.equal(runtime.renderCount, 1, 'the click must render exactly one diagram');
+assert.equal(runtime.config.layout, 'elk');
+assert.equal(runtime.config.theme, 'redux-color');
+assert.equal(runtime.config.look, 'neo');
+assert.equal(runtime.config.securityLevel, 'strict');
+assert.equal(runtime.config.htmlLabels, false);
+assert.equal(runtime.config.themeVariables, undefined);
 assert.ok(card.querySelector('.dsh-mdm-svg svg') !== null, 'the diagram must be rendered into the card');
 assert.equal(flow.pre.hidden, true, 'the source must hide once the diagram shows');
 assert.equal(card.getAttribute('data-dsh-mermaid-state'), 'ok');

@@ -21,7 +21,6 @@ const root = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const mermaidDir = join(root, 'node_modules', 'mermaid');
 const version = JSON.parse(readFileSync(join(mermaidDir, 'package.json'), 'utf8')).version;
-const esbuild = join(root, 'node_modules', '.bin', 'esbuild');
 const vendor = join(root, 'vendor');
 
 // 1. One self-contained ESM bundle: static and dynamic imports both inlined, so
@@ -46,5 +45,6 @@ if (/^\s*(?:import|export)\s/m.test(body)) {
 
 // 3. License notice travels with the vendored bytes.
 copyFileSync(join(mermaidDir, 'LICENSE'), join(vendor, 'mermaid.LICENSE'));
+copyFileSync(join(root, 'node_modules', 'elkjs', 'LICENSE.md'), join(vendor, 'elkjs.LICENSE'));
 
 console.log(`build: bundled Mermaid ${version} — runtime ${body.length} B -> vendor/`);

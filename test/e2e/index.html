@@ -82,6 +82,7 @@ record('module table', typeof React.createElement === 'function' && typeof creat
 // so the page opts into the eager mode before the bundle reads its preference.
 const requestedMode = new URLSearchParams(location.search).get('mode');
 localStorage.setItem('dsh-mermaid.mode', requestedMode ?? 'always');
+localStorage.setItem('dsh-mermaid-plus.mode', requestedMode ?? 'always');
 await import('./client.js');
 record('client bundle registers', factories.has('dsh-mermaid-plus'), [...factories.keys()].join(','));
 

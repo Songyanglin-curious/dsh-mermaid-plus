@@ -490,8 +490,8 @@ window.__ModuleLoader__.load({
 @media (prefers-reduced-motion: reduce){.dsh-mdm-pill{transition:none}}
 .dsh-mdm-body{padding:12px}
 .dsh-mdm-diagram[hidden],.dsh-mdm-content[hidden],.dsh-mdm-source[hidden]{display:none}
-.dsh-mdm-diagram{display:flex;justify-content:center;overflow-x:auto}
-.dsh-mdm-svg{width:100%}
+.dsh-mdm-diagram{display:flex;justify-content:flex-start;overflow-x:auto}
+.dsh-mdm-svg{width:100%;margin-inline:auto}
 .dsh-mdm-svg svg{display:block;width:100%;height:auto;max-width:100%}
 .dsh-mdm-msg{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#6b7280)}
 .dsh-mdm-source:not([hidden]) + .dsh-mdm-content:not([hidden]) .dsh-mdm-msg{margin-top:8px}

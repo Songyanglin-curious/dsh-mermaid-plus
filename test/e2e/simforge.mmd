@@ -1,0 +1,52 @@
+flowchart TB
+    subgraph 浏览器["浏览器（系统默认浏览器，仅本机）"]
+        FE["Vue3 + Naive UI 前端<br/>hash 路由：台账/运行/设置"]
+    end
+
+    FE -->|"HTTP /api/*<br/>X-Auth-Token + Origin 校验"| API
+    FE -->|"EventSource 替代方案：fetch + ReadableStream<br/>GET /api/simulation/stream"| SSE
+
+    subgraph SimForge.exe["SimForge.exe（.NET 9 + Kestrel，127.0.0.1:{port}）"]
+        API["Minimal API 端点<br/>ThingModel/Device/Storage/Simulation/Sample"]
+        AUTH["令牌+Origin 认证中间件<br/>（仅 /api）"]
+        STATIC["静态资源服务<br/>Debug=物理 wwwroot / Release=嵌入资源"]
+
+        subgraph 台账层["台账层（持久化）"]
+            TS["ThingModelStore"] --> DB["DatabaseService"]
+            DS["DeviceStore"] --> DB
+            SS["SettingsStore<br/>settings.json（仿真参数/数据目录）"]
+            DB --> SQLITE[("SQLite simulator.db<br/>7 张表，schema v1")]
+        end
+
+        subgraph 仿真引擎["仿真引擎（SimulationEngine 单例）"]
+            CLK["SimulationClock<br/>虚拟时间/倍率/冻结"]
+            ES["EventScheduler<br/>全局相位网格 → 时刻批次"]
+            BQ["BatchQueue<br/>Channel 容量 512"]
+            TC["TaskCoordinator<br/>批次严格串行"]
+            GX["GenerateDataExecutor<br/>工作副本并行计算"]
+            RPT["ReportExecutor<br/>固定断面 + 异步组装"]
+            DC["DataCenter<br/>统一提交屏障"]
+            OC["OverloadController<br/>队列占用率 → 提醒/降倍率/告警"]
+            REG["RuntimeRegistry<br/>deviceId → DeviceRuntime"]
+        end
+
+        OUT["SimulationOutput<br/>SSE 订阅广播"]
+    end
+
+    API --> TS
+    API --> DS
+    API --> SS
+    API --> 仿真引擎
+    仿真引擎 --> OUT
+    CLK --> ES
+    ES --> BQ
+    BQ --> TC
+    TC --> GX
+    TC --> RPT
+    GX --> DC
+    RPT --> DC
+    OC --> CLK
+    REG --> ES
+    OUT --> SSE
+    SSE --> FE
+    STATIC --> FE
