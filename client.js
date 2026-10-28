@@ -602,7 +602,7 @@ window.__ModuleLoader__.load({
 			entry.root?.setAttribute('data-dsh-mermaid-state', entry.state);
 		}
 
-		/** Keep a diagram readable when it is wider than the column, without resizing the code block. */
+		/** 按原始比例设置实际占位尺寸；宽图最多缩至一半，其余通过横向滚动阅读。 */
 		function applyZoom(entry) {
 			if (entry.diagram.hidden || entry.content.clientWidth === 0) {
 				entry.canvas.style.width = '';
@@ -610,10 +610,16 @@ window.__ModuleLoader__.load({
 				return;
 			}
 			const available = entry.content.clientWidth;
-			const natural = entry.canvas.scrollWidth;
-			if (natural > available + 2) entry.canvas.style.transform = `scale(${available / natural})`;
-			else entry.canvas.style.transform = '';
-			entry.canvas.style.width = '';
+			const svg = entry.canvas.querySelector('svg');
+			if (svg === null) return;
+			const size = naturalSize(svg);
+			const scale = Math.min(1, Math.max(0.5, available / size.width));
+			entry.canvas.style.transform = '';
+			entry.canvas.style.width = `${size.width * scale}px`;
+			entry.canvas.style.flex = '0 0 auto';
+			svg.style.maxWidth = 'none';
+			svg.style.width = '100%';
+			svg.style.height = 'auto';
 		}
 
 		/** Build the toolbar and the diagram card that accompany one code block. */
@@ -731,7 +737,7 @@ window.__ModuleLoader__.load({
 			}, delay);
 		}
 
-		/** Render (or re-render) one decoration when its source or the palette changed. */
+		/** 根据当前源码与主题串行渲染，拒绝已经失效的异步结果。 */
 		function render(entry) {
 			if (!entry.pre.isConnected) return;
 			const source = entry.pre.textContent ?? '';
@@ -751,7 +757,7 @@ window.__ModuleLoader__.load({
 			paletteSignature = palette.signature;
 			entry.surface = palette.palette.background;
 			entry.surfaceDark = palette.dark;
-			const key = `${paletteSignature}\u0000${source}`;
+			const key = `mermaid-12.2.0-elk-neo-redux-v1\u0000${paletteSignature}\u0000${source}`;
 			if (key === entry.hash && entry.state === 'ok') return;
 			entry.hash = key;
 			// A diagram already produced for this source and palette costs nothing.
@@ -774,11 +780,12 @@ window.__ModuleLoader__.load({
 				mermaid.initialize({
 					startOnLoad: false,
 					securityLevel: 'strict',
+					layout: 'elk',
+					look: 'neo',
 					htmlLabels: false,
 					flowchart: { htmlLabels: false },
-					theme: palette.dark ? 'dark' : 'default',
-					themeVariables: palette.palette,
-					fontFamily: 'inherit',
+					theme: palette.dark ? 'redux-dark-color' : 'redux-color',
+					fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
 					deterministicIds: false,
 					logLevel: 'fatal',
 				});
@@ -787,8 +794,8 @@ window.__ModuleLoader__.load({
 			entry.promise.then(
 				(result) => {
 					entry.promise = null;
-					if (!entry.pre.isConnected) return;
-					if (expected !== revision) {
+					if (!entry.pre.isConnected || entries.get(entry.pre) !== entry) return;
+					if (expected !== revision || entry.pre.textContent !== source) {
 						// The palette moved while this render was queued; ask again.
 						entry.hash = '';
 						entry.state = 'idle';
@@ -811,7 +818,13 @@ window.__ModuleLoader__.load({
 				},
 				(error) => {
 					entry.promise = null;
-					if (expected !== revision) return;
+					if (!entry.pre.isConnected || entries.get(entry.pre) !== entry) return;
+					if (expected !== revision || entry.pre.textContent !== source) {
+						entry.hash = '';
+						entry.state = 'idle';
+						pump(entry);
+						return;
+					}
 					const message = String(error?.message ?? error).slice(0, 400);
 					console.error(`${PKG}: diagram failed to render`, error);
 					entry.state = 'error';
