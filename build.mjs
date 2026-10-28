@@ -12,7 +12,7 @@
  * a chunk as `/plugins/<id>/<file>`, and a scoped package id (`@scope/name`)
  * contains a `/`, so the Host's chunk route never matches it.
  */
-import { execFileSync } from 'node:child_process';
+import { build } from 'esbuild';
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,19 +26,17 @@ const vendor = join(root, 'vendor');
 
 // 1. One self-contained ESM bundle: static and dynamic imports both inlined, so
 //    the browser needs exactly one request and the runtime needs no import map.
-execFileSync(
-	esbuild,
-	[
-		join(mermaidDir, 'dist', 'mermaid.esm.min.mjs'),
-		'--bundle',
-		'--format=esm',
-		'--minify',
-		'--target=es2022',
-		`--outfile=${join(vendor, 'mermaid.esm.min.mjs')}`,
-		'--log-level=warning',
-	],
-	{ stdio: 'inherit' },
-);
+// 使用 JS API，避免 Windows 无法直接执行 .bin 下的 shell 脚本。
+await build({
+	entryPoints: [join(mermaidDir, 'dist', 'mermaid.esm.min.mjs')],
+	bundle: true,
+	format: 'esm',
+	minify: true,
+	target: 'es2022',
+	outfile: join(vendor, 'mermaid.esm.min.mjs'),
+	logLevel: 'warning',
+	legalComments: 'inline',
+});
 
 const runtime = readFileSync(join(vendor, 'mermaid.esm.min.mjs'), 'utf8');
 const body = runtime.replace(/\/\/#\s*sourceMappingURL=.*$/m, '');
