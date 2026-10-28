@@ -595,7 +595,7 @@ window.__ModuleLoader__.load({
 			entry.root?.setAttribute('data-dsh-mermaid-state', entry.state);
 		}
 
-		/** 按原始比例设置实际占位尺寸；宽图最多缩至一半，其余通过横向滚动阅读。 */
+		/** 按原始比例设置占位尺寸，使用自动适应或用户选择的缩放比例。 */
 		function applyZoom(entry) {
 			if (entry.diagram.hidden || entry.content.clientWidth === 0) {
 				entry.canvas.style.width = '';
@@ -735,6 +735,25 @@ window.__ModuleLoader__.load({
 			const canvas = document.createElement('div');
 			canvas.className = 'dsh-mdm-svg';
 			diagram.append(canvas);
+			/** 在图形区域内用滚轮围绕指针缩放，区域外保留页面滚动。 */
+			const onWheel = (event) => {
+				if (entry.state !== 'ok' || diagram.hidden || event.deltaY === 0) return;
+				event.preventDefault();
+				event.stopPropagation();
+				const before = canvas.getBoundingClientRect();
+				if (before.width <= 0 || before.height <= 0) return;
+				const x = (event.clientX - before.left) / before.width;
+				const y = (event.clientY - before.top) / before.height;
+				const size = naturalSize(canvas.querySelector('svg'));
+				const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? diagram.clientHeight : 1);
+				const scale = entry.zoom ?? before.width / size.width;
+				entry.zoom = Math.max(0.1, Math.min(8, scale * Math.exp(-Math.max(-200, Math.min(200, delta)) * 0.002)));
+				applyZoom(entry);
+				const after = canvas.getBoundingClientRect();
+				diagram.scrollLeft += after.left + x * after.width - event.clientX;
+				diagram.scrollTop += after.top + y * after.height - event.clientY;
+			};
+			diagram.addEventListener('wheel', onWheel, { passive: false });
 			let drag = null;
 			diagram.addEventListener('pointerdown', (event) => {
 				if (event.button !== 0 || event.target.closest('a')) return;

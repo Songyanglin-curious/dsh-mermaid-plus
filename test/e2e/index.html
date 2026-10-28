@@ -217,6 +217,15 @@ viewport.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 1 }));
 record('inline drag cancellation releases', !viewport.hasAttribute('data-dragging'));
 control('Fit to window').click();
 record('inline fit resets', Math.abs(inlineCanvas.getBoundingClientRect().width - initialWidth) < 2 && viewport.scrollLeft === 0);
+// 验证滚轮双向缩放、阻止区域内页面滚动，并保留工具栏适应操作。
+const wheelPoint = viewport.getBoundingClientRect();
+const wheelIn = new WheelEvent('wheel', { deltaY: -120, clientX: wheelPoint.left + 50, clientY: wheelPoint.top + 50, cancelable: true, bubbles: true });
+viewport.dispatchEvent(wheelIn);
+const wheelWidth = inlineCanvas.getBoundingClientRect().width;
+record('inline wheel zooms in and consumes scroll', wheelWidth > initialWidth && wheelIn.defaultPrevented);
+viewport.dispatchEvent(new WheelEvent('wheel', { deltaY: 120, clientX: wheelPoint.left + 50, clientY: wheelPoint.top + 50, cancelable: true, bubbles: true }));
+record('inline wheel zooms out', inlineCanvas.getBoundingClientRect().width < wheelWidth);
+control('Fit to window').click();
 const originalCreateUrl = URL.createObjectURL;
 const originalAnchorClick = HTMLAnchorElement.prototype.click;
 const exportBlobs = new Map();

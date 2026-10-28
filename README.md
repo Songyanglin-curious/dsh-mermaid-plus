@@ -31,7 +31,7 @@ A fenced ` ```mermaid ` block in the conversation (or in a Markdown file preview
 - **When visible** — a diagram renders the first time its card scrolls into view.
 - **Always (default)** — renders when the source settles, then displays the diagram. The new preference key resets the previous default manual mode once; subsequent choices are saved.
 
-The inline toolbar offers −, +, fit, 1:1, fullscreen, SVG, and PNG. Drag inside the diagram viewport to pan. SVG preserves natural dimensions; PNG uses the current background with a maximum long edge of 8192 pixels.
+The inline toolbar offers −, +, fit, 1:1, fullscreen, SVG, and PNG. Use the wheel inside the diagram viewport to zoom around the pointer, and left-drag to pan. Outside the viewport, the wheel scrolls the page normally. SVG preserves natural dimensions; PNG uses the current background with a maximum long edge of 8192 pixels.
 
 Every rendered diagram can be opened **fullscreen** with zoom and pan, which is the point: a wide flowchart squeezed into the message column is unreadable, while the same diagram at natural size is fine.
 
