@@ -5,6 +5,8 @@
 - [渲染核心改造与本机验证.md](渲染核心改造与本机验证.md)：改造范围、包安装、截图、验证结果和边界。
 
 - [development.md](development.md)：上游开发与浏览器验证方法。
+- [simforge-test.png](simforge-test.png)：本地 8 张 SimForge 复杂图整页渲染效果（0.4.0）。
+- [real-app-chat.png](real-app-chat.png)：web profile 真机对话中渲染的 Mermaid 卡片（DSH 0.2.2-rc.1）。
 - [card.png](card.png)：上游图表卡片示例。
 - [viewer-dark.png](viewer-dark.png)：上游深色查看器示例。
 - [viewer-light.png](viewer-light.png)：上游浅色查看器示例。

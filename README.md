@@ -67,6 +67,10 @@ Mermaid diagrams for [DeepSeek Harness](https://github.com/deepseek-ai/DeepSeek-
 
 点击图片可查看原图。截图原件保存在 [docs/comparison](docs/comparison/index.md)，未重绘或修改图中内容。
 
+0.4.0 适配 DSH `0.2.2-rc.1` 后的真机效果（对话中的图表卡片）：
+
+![真机对话中的 Mermaid 图表](docs/real-app-chat.png)
+
 ## What it does
 
 A fenced ` ```mermaid ` block in the conversation (or in a Markdown file preview) becomes a card:
