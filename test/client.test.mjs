@@ -149,6 +149,15 @@ plugin.apply({
 	},
 });
 
+// A view must wait for the slot it registers into. Mocks cannot prove the app's
+// ordering, but this pins the contract that broke under DSH 0.2.2-rc.1: injecting
+// the parent slot registers before the declared child exists.
+assert.deepEqual(
+	injections.registered.map((entry) => entry.name).sort(),
+	[...injections.requested].sort(),
+	'every registration must inject the slot it registers into',
+);
+
 //#region helpers
 /** One rendered Markdown code block, shaped like the primitives' output. */
 function addBlock(language, source, { labelled = true } = {}) {
@@ -223,7 +232,7 @@ function setMode(label) {
 //#region registration
 assert.deepEqual(
 	injections.requested,
-	['shell.overlay', 'conversation.composer.bar', 'settings.section'],
+	['shell.overlay', 'conversation.composer.dock', 'settings.general.item'],
 	'the three view hosts must be injected',
 );
 assert.deepEqual(

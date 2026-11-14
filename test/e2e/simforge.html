@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>SimForge 复杂 Mermaid 集成测试</title>
+<!--
+  本地看图页：不是测试断言页（那是 index.html），而是把 SimForge 文档里抽出来的
+  复杂图放进“像 Chat 渲染器 Markdown 输出”的 DOM 里，用**出货的** client.js
+  渲染，好在本地直接看效果、截图、换主题对比。
+
+     node test/serve-e2e.mjs
+     http://127.0.0.1:8732/simforge.html          # 浅色
+     http://127.0.0.1:8732/simforge.html?dark=1   # 深色
+     http://127.0.0.1:8732/simforge.html?source=1 # 展开源码视图
+
+  图源只有一份：./simforge-complex.md。页面读它、按 \`\`\`mermaid 切块，
+  再把每块包成 <pre><code class="language-mermaid">——渲染器真实产出的形状。
+-->
+<script type="importmap">
+{ "imports": { "react": "https://esm.sh/react@18.3.1" } }
+</script>
+<style>
+  :root { color-scheme: light; }
+  html[data-theme="dark"] { color-scheme: dark; }
+  body { font: 14px/1.6 -apple-system, "Segoe UI", system-ui, sans-serif; margin: 0; padding: 24px 16px 80px; background: var(--bg, #fff); color: var(--fg, #1b1c1f); }
+  html[data-theme="dark"] body { --bg: #16181d; --fg: #e7eaf0; }
+  #transcript { max-width: 1000px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 28px 0 4px; }
+  .meta { color: #7a828f; font-size: 12px; margin: 0 0 8px; }
+  .status { font-size: 12px; color: #7a828f; position: fixed; right: 12px; bottom: 10px; background: rgba(127,127,127,.12); padding: 6px 10px; border-radius: 8px; }
+  pre.shipped-code-card { background: #f4f6fb; border-radius: 8px; padding: 10px; overflow: auto; }
+  html[data-theme="dark"] pre.shipped-code-card { background: #1e2128; }
+</style>
+</head>
+<body>
+<div id="transcript">
+  <h1>SimForge 复杂 Mermaid 集成测试</h1>
+  <p class="meta">8 张图来自 D:\code\SimForge\docs；用出货的 client.js 渲染。</p>
+</div>
+<div class="status" id="status">loading…</div>
+
+<script type="module">
+// 静态页没有 Host，浏览器半的报表 POST 本地应答即可。
+const nativeFetch = window.fetch.bind(window);
+window.fetch = (input, init) => {
+  const url = typeof input === 'string' ? input : input.url;
+  if (/\/x-dsh-mermaid-plus\/__report$/.test(url.replace(/^https?:\/\/[^/]+/, ''))) {
+    (window.__dshMermaidReports ??= []).push(url);
+    return Promise.resolve({ ok: true, status: 204, json: () => Promise.resolve(null), text: () => Promise.resolve('') });
+  }
+  return nativeFetch(input, init);
+};
+
+const params = new URLSearchParams(location.search);
+const dark = params.has('dark');
+if (dark) document.documentElement.dataset.theme = 'dark';
+
+// 1. 把 Markdown 切成图块，渲染成 Chat 渲染器的形状。
+const md = await (await fetch('./simforge-complex.md')).text();
+const blocks = [];
+{
+  const lines = md.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const open = /^```+\s*mermaid\s*$/.exec(lines[i].trim());
+    if (!open) continue;
+    const body = [];
+    let j = i + 1;
+    while (j < lines.length && !/^```+\s*$/.test(lines[j].trim())) body.push(lines[j++]);
+    // 标题取上一个 ## 行，来源取上一个“来源：”行。
+    let title = `图 ${blocks.length + 1}`;
+    let source = '';
+    for (let k = i; k >= 0 && i - k < 20; k--) {
+      const h = /^##\s+(.*)$/.exec(lines[k]);
+      if (h) { title = h[1].trim(); break; }
+    }
+    for (let k = i; k >= 0 && i - k < 20; k--) {
+      const s = /^来源：\s*(.*)$/.exec(lines[k].trim());
+      if (s) { source = s[1].trim(); break; }
+    }
+    blocks.push({ title, source, code: body.join('\n') });
+    i = j;
+  }
+}
+
+const transcript = document.getElementById('transcript');
+for (const block of blocks) {
+  const h2 = document.createElement('h2');
+  h2.textContent = block.title;
+  transcript.append(h2);
+  if (block.source) {
+    const meta = document.createElement('p');
+    meta.className = 'meta';
+    meta.textContent = block.source;
+    transcript.append(meta);
+  }
+  const pre = document.createElement('pre');
+  pre.className = 'shipped-code-card';
+  const code = document.createElement('code');
+  code.className = 'language-mermaid';
+  code.textContent = block.code;
+  pre.append(code);
+  transcript.append(pre);
+}
+const status = document.getElementById('status');
+status.textContent = `${blocks.length} 张图 · 等待渲染`;
+
+// 2. 装载出货的浏览器半，和 e2e 页同样的 module-loader 契约。
+const factories = new Map();
+window.__ModuleLoader__ = { load: (registration) => factories.set(registration.id, registration.factory) };
+
+const [{ default: React }, { createRoot }] = await Promise.all([
+  import('react'),
+  import('https://esm.sh/react-dom@18.3.1/client'),
+]);
+
+// 本页是“看图”，强制 always 模式（默认是 on-demand）。
+for (const key of ['dsh-mermaid.mode', 'dsh-mermaid-plus.mode', 'dsh-mermaid-plus.mode.v2']) localStorage.setItem(key, 'always');
+await import('./client.js');
+
+const registrations = [];
+const react = { ...React };
+const clientModule = factories.get('dsh-mermaid-plus')((spec) => {
+  if (spec === 'react') return react;
+  throw new Error(`unexpected require(${spec})`);
+});
+const locale = { register: () => () => undefined, bind: () => (key) => key };
+clientModule.apply({
+  get: (name) => ({ locale })[name],
+  effect: (callback) => { callback(); return () => undefined; },
+  on: () => () => undefined,
+  locale,
+  slots: {
+    inject: (_key, callback) => callback(),
+    register: (options, component) => { registrations.push({ ...options, component }); return () => undefined; },
+  },
+});
+
+const host = registrations.find((entry) => entry.name === 'shell.overlay');
+const mount = document.createElement('div');
+document.body.append(mount);
+createRoot(mount).render(React.createElement(host.component));
+
+// 3. 等每张图变成 SVG，把结果写进 <title>，截图脚本据此判断。
+const cards = () => [...document.querySelectorAll('.dsh-mdm')];
+const svgs = () => [...document.querySelectorAll('.dsh-mdm-svg svg')];
+// 失败提示元素一直在 DOM 里（空字符串表示没失败），所以只数非空的。
+const errors = () => [...document.querySelectorAll('.dsh-mdm-err')].map((node) => node.textContent.trim()).filter((text) => text !== '');
+const deadline = Date.now() + 120000;
+while (Date.now() < deadline) {
+  if (cards().length === blocks.length && svgs().length + errors().length >= blocks.length) break;
+  await new Promise((resolve) => setTimeout(resolve, 150));
+}
+await new Promise((resolve) => setTimeout(resolve, 400));
+
+if (params.has('source')) {
+  for (const card of cards()) {
+    const toggle = [...card.querySelectorAll('.dsh-mdm-btn')].find((node) => /code|源码/i.test(node.textContent ?? ''));
+    toggle?.click();
+  }
+  await new Promise((resolve) => setTimeout(resolve, 200));
+}
+
+const failed = errors();
+status.textContent = `${blocks.length} 张图 · ${svgs().length} 张 SVG · ${failed.length} 处失败`;
+document.title = `SimForge ${blocks.length} · ok ${svgs().length} · fail ${failed.length}`;
+window.__SIMFORGE__ = { blocks: blocks.length, svg: svgs().length, failed };
+if (failed.length > 0) console.error('render failures:', failed);
+</script>
+</body>
+</html>

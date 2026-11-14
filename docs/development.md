@@ -23,6 +23,13 @@ node test/serve-e2e.mjs      # serve the harness page on :8732
 open http://127.0.0.1:8732/  # 35 assertions run in the page; results in window.__E2E__
 ```
 
+`test/e2e/simforge.html` is the eyeball page: it reads
+`test/e2e/simforge-complex.md` (8 complex diagrams lifted from the SimForge docs),
+wraps each fence the way the chat renderer does, and renders them with the shipped
+`client.js`. `?dark=1` switches the palette, `?source=1` opens the code views. The
+verdict lands in `<title>` (`SimForge 8 · ok 8 · fail 0`) and in `window.__SIMFORGE__`,
+so a headless screenshot can assert it too.
+
 `test/e2e/index.html` loads the **shipped** `client.js`, the real vendored Mermaid, real React, and a DOM that looks like the Chat renderer's Markdown. Add a fixture there for the case you are fixing — a new fence shape, a theme, a viewer interaction — and iterate with a browser refresh instead of an app restart.
 
 ```sh
@@ -52,6 +59,7 @@ Both files live in `<os tmp>/dsh-mermaid-plus/`. They contain **event names and 
 | Cards disappear after a DSH update | Client bundle not loaded, or the seat moved | `activation.json` (`own entry in client graph`), then the client slots |
 | Works in the app, not in a preview (or vice versa) | A renderer with a different DOM shape | Add that shape to `test/e2e/index.html`; `isMermaidBlock()` is the single place that decides |
 | Nothing renders after an edit | The app did not reload; the desktop shell does not reliably reload on ⌘R | Restart DSH |
+| Console: `slot "<name>" is not declared` | A view injected its parent slot instead of the slot it registers into, so registration ran before the child slot existed. DSH 0.2.2-rc.1 declares parents first | `ctx.slots.inject()` calls in `client.js` |
 
 The decoration layer is the fragile part: it keys on rendered `<pre>` elements because the shipped Markdown renderer exposes no code-fence extension point. If upstream ever adds one, that is the code to replace — the rest (Host route, modes, viewer, settings) survives.
 
@@ -71,16 +79,29 @@ names, and `CHROME_BIN` overrides the search. The page reports its own verdict i
 the title, so a browser that renders nothing fails instead of passing vacuously.
 
 One suite is skipped on CI on purpose: `test/host-mount.test.mjs` mounts the
-plugin on the real `webServer` service, and the published
-`@deepseek-ai/dsh-host-webserver` is still the 0.0.x generation (it registers
-`httpServer`). Locally, symlink the application's packages into `node_modules`
-to run it:
+plugin on the real `webServer` service, and CI installs only this package's dev
+dependencies. `@deepseek-ai/dsh-host-webserver` from DSH `0.2.2-rc.1` and later
+registers `webServer`, which is the generation this plugin targets, so the suite
+runs locally once the DSH install is linked into `node_modules`:
 
 ```sh
+# macOS / Linux — adjust the application path
 mkdir -p node_modules/@deepseek-ai
 ln -s "/Applications/DSH NEXT.app/Contents/Resources/app/node_modules/@deepseek-ai/cordis" node_modules/@deepseek-ai/cordis
 ln -s "/Applications/DSH NEXT.app/Contents/Resources/app/node_modules/@deepseek-ai/dsh-host-webserver" node_modules/@deepseek-ai/dsh-host-webserver
 ```
+
+```powershell
+# Windows — junctions resolve the same way and need no admin rights
+$inner = '<dsh-install>\node_modules\@deepseek-ai\dsh\node_modules\@deepseek-ai'
+New-Item -ItemType Directory -Force node_modules\@deepseek-ai | Out-Null
+foreach ($p in 'cordis','dsh-host-webserver') {
+  New-Item -ItemType Junction -Path "node_modules\@deepseek-ai\$p" -Target (Join-Path $inner $p)
+}
+```
+
+That runs the mount suite against the **real** 0.2.2-rc.1 services, which is how
+a DSH upgrade is cleared: unit suite, mount suite, then the app itself.
 
 ## Releasing
 
@@ -116,4 +137,4 @@ appear there.
 
 ## Compatibility
 
-Verified against DSH `0.2.0-rc.2`. DSH is a developer preview; client plugin contracts, slot keys and rendered Markdown can change between releases. Treat a DSH upgrade as a test run: `node tools/doctor.mjs`, then open a conversation with a diagram and a preview.
+Verified against DSH `0.2.2-rc.1`. DSH is a developer preview; client plugin contracts, slot keys and rendered Markdown can change between releases. Treat a DSH upgrade as a test run: `node tools/doctor.mjs`, then open a conversation with a diagram and a preview.

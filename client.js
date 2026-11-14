@@ -1518,10 +1518,14 @@ window.__ModuleLoader__.load({
 					ctx.slots.inject('shell.overlay', () =>
 						ctx.slots.register({ name: 'shell.overlay', id: 'mermaid-host', order: 95 }, MermaidHost),
 					);
-					ctx.slots.inject('conversation.composer.bar', () =>
+					// `inject` takes the slot to WAIT FOR, so it must name the slot this
+					// entry registers into — not its parent. DSH 0.2.2-rc.1 declares a
+					// parent before its children, so injecting the parent ran the
+					// registration too early and threw "not declared".
+					ctx.slots.inject('conversation.composer.dock', () =>
 						ctx.slots.register({ name: 'conversation.composer.dock', id: 'mermaid-status', order: 40 }, MermaidStatus),
 					);
-					ctx.slots.inject('settings.section', () =>
+					ctx.slots.inject('settings.general.item', () =>
 						ctx.slots.register({ name: 'settings.general.item', id: 'mermaid-diagrams', order: 40 }, MermaidSetting),
 					);
 					report('apply-ok');

@@ -18,8 +18,11 @@ import { join } from 'node:path';
 const MIN_CASES = 30;
 
 /** Candidate browser binaries, in the order a maintainer would try them. */
+const win = (...parts) => (process.env.ProgramFiles === undefined ? undefined : join(process.env.ProgramFiles, ...parts));
 const candidates = [
 	process.env.CHROME_BIN,
+	win('Google', 'Chrome', 'Application', 'chrome.exe'),
+	win('Microsoft', 'Edge', 'Application', 'msedge.exe'),
 	'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
 	'/Applications/Chromium.app/Contents/MacOS/Chromium',
 	'google-chrome',
