@@ -163,6 +163,7 @@ window.__ModuleLoader__.load({
 			}
 			hub.emit({ mode: next });
 			syncReveal();
+			prefetchRuntime();
 			// Switching to an eager mode must not leave the page silent; switching to
 			// manual leaves anything already rendered alone (it is a sunk cost).
 			for (const entry of entries.values()) pump(entry);
@@ -235,6 +236,30 @@ window.__ModuleLoader__.load({
 					throw new Error(`${PKG}: could not load the vendored runtime from ${url}: ${String(error?.message ?? error)}`);
 				});
 			return runtime;
+		}
+
+		/** Whether the idle warm-up has already been scheduled this page. */
+		let prefetchScheduled = false;
+
+		/**
+		 * Warm the vendored runtime while the page is idle, the way a webview bundle
+		 * is already parsed by the time the reader scrolls: the first diagram then
+		 * pays only layout, not 5 MB of download and parse. `manual` means "do not
+		 * load until I ask", and a metered connection means "do not spend the bytes",
+		 * so both skip it. A failed warm-up is silent; the first render retries.
+		 */
+		function prefetchRuntime() {
+			if (prefetchScheduled) return;
+			if (hub.snapshot.mode === 'manual') return;
+			if (navigator.connection?.saveData === true) return;
+			prefetchScheduled = true;
+			const warm = () => {
+				loadRuntime().catch(() => {
+					prefetchScheduled = false;
+				});
+			};
+			if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(warm, { timeout: 3000 });
+			else window.setTimeout(warm, 1200);
 		}
 
 		/** Serial queue: Mermaid renders one diagram at a time, and a failure never blocks the next. */
@@ -1375,6 +1400,7 @@ window.__ModuleLoader__.load({
 			}, 2000);
 			report('start', { mode: hub.snapshot.mode, candidates: candidates().length, scheme: currentScheme() });
 			scan();
+			prefetchRuntime();
 		}
 
 		/** Stop decorating and remove every decoration and resource we own. */
