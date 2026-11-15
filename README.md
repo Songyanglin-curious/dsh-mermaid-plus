@@ -100,19 +100,25 @@ Every rendered diagram can be opened **fullscreen** with zoom and pan, which is 
 
 ### 直接安装本 Fork（推荐）
 
-从 GitHub 安装本仓库的改造版，以 `code` Profile 为例：
+从 GitHub 安装本仓库的改造版到 `web` Profile：
 
 ```sh
-dsh plugin --profile code add github:Songyanglin-curious/dsh-mermaid-plus#main
+dsh plugin --profile web add github:Songyanglin-curious/dsh-mermaid-plus#main
 ```
 
-仓库已包含离线 Mermaid 运行时，无需另外构建。将 `code` 替换为你实际使用的 Profile 名称；安装后重启该 Profile，并刷新浏览器页面。
+仓库已包含离线 Mermaid 运行时，无需另外构建。安装后重启 `web` 并刷新浏览器页面：
+
+```sh
+dsh --profile web
+```
+
+可用 `dsh plugin --profile web list` 确认安装结果。若使用其他 Profile，将命令中的 `web` 替换为实际名称；各 Profile 的插件安装相互独立。
 
 如果该 Profile 已安装同名插件（上游版或旧本地包），先移除再安装：
 
 ```sh
-dsh plugin --profile code remove dsh-mermaid-plus
-dsh plugin --profile code add github:Songyanglin-curious/dsh-mermaid-plus#main
+dsh plugin --profile web remove dsh-mermaid-plus
+dsh plugin --profile web add github:Songyanglin-curious/dsh-mermaid-plus#main
 ```
 
 `main` 跟随本 Fork 后续更新；需要固定代码版本时，可把 `#main` 换成对应 Git 提交的完整 SHA。
