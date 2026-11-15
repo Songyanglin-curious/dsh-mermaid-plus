@@ -7,21 +7,30 @@
  * Run from the plugin root: `node test/host-mount.test.mjs`.
  */
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { inject, apply, RUNTIME_PATH } from '../index.js';
 
 /**
  * This suite mounts the plugin on the real cordis + webserver services, which the
  * plugin's `inject: ['webServer']` depends on. Those packages are the desktop
- * application's own generation: the published `@deepseek-ai/dsh-host-webserver`
- * still registers `httpServer` (0.0.x), so a machine without the application
- * cannot run this. Skipping loudly beats a green check that proved nothing.
+ * application's own generation. Set DSH_RUNTIME_PACKAGE to the installed CLI
+ * package.json to test its real dependencies; resolution failures in that mode
+ * fail the suite rather than silently skipping integration verification.
  */
 let Context;
 let WebServer;
+/** 将当前项目或指定 CLI 内解析出的包路径转换为可导入的 URL。 */
+function runtimeModule(name) {
+	const resolved = process.env.DSH_RUNTIME_PACKAGE ? createRequire(process.env.DSH_RUNTIME_PACKAGE).resolve(name) : import.meta.resolve(name);
+	return resolved.startsWith('file:') ? resolved : pathToFileURL(resolved).href;
+}
 try {
-	({ Context } = await import('@deepseek-ai/cordis'));
-	WebServer = (await import('@deepseek-ai/dsh-host-webserver')).default;
-} catch {
+	// 显式指定 CLI 清单时，使用它自己的依赖解析与真实运行时测试。
+	({ Context } = await import(runtimeModule('@deepseek-ai/cordis')));
+	WebServer = (await import(runtimeModule('@deepseek-ai/dsh-host-webserver'))).default;
+} catch (error) {
+	if (process.env.DSH_RUNTIME_PACKAGE) throw error;
 	console.log('host mount: skipped — @deepseek-ai/cordis and @deepseek-ai/dsh-host-webserver are not installed');
 	process.exit(0);
 }
@@ -58,7 +67,7 @@ console.log(`ok   runtime          200, ${runtimeBody.length} bytes, text/javasc
 
 // The browser half imports the runtime from exactly this URL; a version query
 // must not affect resolution.
-const versioned = await fetch(`${origin}${RUNTIME_PATH}/mermaid.esm.min.mjs?v=11.17.0`);
+const versioned = await fetch(`${origin}${RUNTIME_PATH}/mermaid.esm.min.mjs?v=12.2.0`);
 assert.equal(versioned.status, 200, 'a versioned runtime URL must serve the module');
 assert.match(versioned.headers.get('content-type') ?? '', /text\/javascript/, 'the runtime must be JavaScript');
 console.log('ok   versioned URL    200, text/javascript');

@@ -1,7 +1,7 @@
 {
   "name": "dsh-mermaid-plus",
-  "version": "0.4.0",
-  "description": "Mermaid diagrams for DeepSeek Harness: on-demand rendering, theme-aware, with a fullscreen zoom viewer.",
+  "version": "0.4.1",
+  "description": "Mermaid 12 ELK diagrams for DSH 0.2.2-rc.1 with inline wheel zoom, pan and SVG/PNG export.",
   "license": "MIT",
   "author": "pidongqianqian",
   "type": "module",
@@ -16,17 +16,17 @@
     "markdown",
     "sequence-diagram"
   ],
-  "homepage": "https://github.com/pidongqianqian/dsh-mermaid-plus#readme",
+  "homepage": "https://github.com/Songyanglin-curious/dsh-mermaid-plus#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pidongqianqian/dsh-mermaid-plus.git"
+    "url": "git+https://github.com/Songyanglin-curious/dsh-mermaid-plus.git"
   },
   "bugs": {
-    "url": "https://github.com/pidongqianqian/dsh-mermaid-plus/issues"
+    "url": "https://github.com/Songyanglin-curious/dsh-mermaid-plus/issues"
   },
   "meta": {
     "title": "Mermaid Diagrams Plus",
-    "description": "Renders mermaid fenced code blocks as diagrams. Nothing renders until you ask (on demand by default), with scroll-into-view and always modes, theme-aware colours, and a fullscreen viewer with zoom and pan."
+    "description": "Automatically renders Mermaid diagrams with ELK layouts, theme-aware styling, wheel zoom, drag to pan, fullscreen viewing and SVG/PNG export."
   },
   "exports": {
     ".": "./index.js",
@@ -54,8 +54,10 @@
       "platform": "web",
       "immediately": true,
       "inject": [
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-client-locale"
+        "@deepseek-ai/dsh-client-ui-settings-general"
       ]
     }
   },
@@ -70,5 +72,13 @@
     "esbuild": "^0.25.0",
     "jsdom": "^27.0.0",
     "mermaid": "12.2.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": "0.2.2-rc.1"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh": {
+      "optional": true
+    }
   }
 }

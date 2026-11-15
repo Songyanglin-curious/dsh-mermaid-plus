@@ -10,7 +10,7 @@ window.__ModuleLoader__.load({
 		 */
 		const RUNTIME_PATH = `/x-${PKG.replace(/^@/, '').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
 		/** Bundled Mermaid release; part of the URL so a page reload refetches a new build. */
-		const RUNTIME_VERSION = '11.17.0';
+		const RUNTIME_VERSION = '12.2.0';
 
 		/** Report one browser-half event to the Host's sink; a failure here is never fatal. */
 		function report(event, detail) {

@@ -13,7 +13,9 @@ Mermaid diagrams for [DeepSeek Harness](https://github.com/deepseek-ai/DeepSeek-
 
 本项目 Fork 自 **[pidongqianqian/dsh-mermaid-plus](https://github.com/pidongqianqian/dsh-mermaid-plus)**，原作者为 **pidongqianqian**，沿用 MIT 许可证。当前 Fork 为 [Songyanglin-curious/dsh-mermaid-plus](https://github.com/Songyanglin-curious/dsh-mermaid-plus)。上游提供了 DSH 集成、图表识别、三种渲染模式、源码切换、全屏查看、缓存及生命周期管理；本次在这些功能基础上改造渲染核心和图形交互。
 
-当前版本为 **`0.4.0`**，适配 DSH `0.2.2-rc.1`；尚未发布到 npm；上方 npm 徽章及 npm 包名指向上游发行版，不代表本 Fork 的改造版本。
+当前版本为 **`0.4.1`**，适配 DSH `0.2.2-rc.1`；尚未发布到 npm；上方 npm 徽章及 npm 包名指向上游发行版，不代表本 Fork 的改造版本。
+
+`0.4.1` 在 `0.4.0` 插槽修复与复杂图测试的基础上，明确声明客户端插槽提供方的加载依赖，同步 Mermaid 运行时版本查询标记，并支持通过 `DSH_RUNTIME_PACKAGE` 指定真实 DSH CLI 运行 Host 集成测试。`@deepseek-ai/dsh` 声明为可选 peer（由启动器提供），兼容版本固定为 `0.2.2-rc.1`，不另外安装一份 CLI。
 
 | 改动 | 本 Fork 的行为 |
 | --- | --- |
@@ -123,7 +125,7 @@ dsh plugin --profile code add github:Songyanglin-curious/dsh-mermaid-plus#main
 npm ci
 npm run build
 npm pack
-dsh plugin --profile <profile> add /absolute/path/dsh-mermaid-plus-0.4.0.tgz
+dsh plugin --profile <profile> add /absolute/path/dsh-mermaid-plus-0.4.1.tgz
 ```
 
 重启对应 DSH Profile 并刷新页面。已安装同名上游包时，先在目标 Profile 移除旧包，再安装本地包；同一个 Profile 中二者会占用同名插件位置。
