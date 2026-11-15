@@ -40,10 +40,18 @@ const MIME = {
 	'.map': 'application/json; charset=utf-8',
 	'.txt': 'text/plain; charset=utf-8',
 	'.license': 'text/plain; charset=utf-8',
+	'.html': 'text/html; charset=utf-8',
 };
 
+/**
+ * The isolated renderer, served beside the vendored runtime. The browser half
+ * puts these in an iframe so Mermaid measures text in a document that has no
+ * app stylesheet — the difference between a fast render and a frozen tab.
+ */
+const RENDERER_DIR = fileURLToPath(new URL('./renderer/', import.meta.url));
+
 /** Vendored names this route exposes: one flat, browser-safe file name each. */
-const ALLOWED = /^[A-Za-z0-9][A-Za-z0-9._-]*\.(?:mjs|js|map|txt|LICENSE|license)$/;
+const ALLOWED = /^[A-Za-z0-9][A-Za-z0-9._-]*\.(?:mjs|js|map|txt|html|LICENSE|license)$/;
 
 /**
  * Media types the browser half fetches on a cold page: gzipped once and kept
@@ -100,7 +108,8 @@ export async function serveVendorFile(request, response) {
 		response.end('Not Found');
 		return;
 	}
-	const target = join(VENDOR_DIR, relative);
+	const fromRenderer = relative === 'renderer.html' || relative === 'renderer-frame.js';
+	const target = fromRenderer ? join(RENDERER_DIR, relative) : join(VENDOR_DIR, relative);
 	let info;
 	try {
 		info = await stat(target);

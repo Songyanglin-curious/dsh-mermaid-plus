@@ -90,6 +90,7 @@ Every rendered diagram can be opened **fullscreen** with zoom and pan, which is 
 - Renders `mermaid`, `mermaidjs`, `mmd` and unlabelled blocks that start with a diagram keyword.
 - Supports the diagram types the bundled Mermaid build ships: `flowchart`/`graph`, `sequenceDiagram`, `classDiagram`, `stateDiagram`, `erDiagram`, `gantt`, `pie`, `mindmap`, `journey`, `timeline`, `quadrantChart`, `xychart`, `gitGraph`, `requirementDiagram`, `C4`, `block-beta`, `packet-beta`, `sankey-beta`, `kanban`, `architecture-beta`, and more.
 - **Warm when idle**: the vendored runtime is fetched and parsed while the page is idle, so the first diagram pays only layout; manual mode and `save-data` connections skip the warm-up.
+- **Isolated renderer**: layout runs in a minimal same-origin iframe, so the app's stylesheet and DOM cannot slow Mermaid's text measurement; if frames are blocked it falls back to in-page rendering.
 - **Theme-aware**: uses official Redux Color / Redux Dark Color themes based on the app's light/dark mode; palette changes invalidate rendered diagrams.
 - **Streaming-safe**: a block is handed to Mermaid only after its source settles, so a half-written fence never flashes a parse error.
 - **Cached**: a rendered diagram is kept by source + palette, so switching between Code and Diagram, or reopening the viewer, costs nothing.
@@ -228,6 +229,7 @@ MIT; the upstream author's copyright notice is retained in [LICENSE](LICENSE). B
 
 - 采用 Mermaid 官方 Redux Color / Redux Dark Color 配色，随应用明暗模式切换，不再注入 DSH 的自定义节点颜色。
 - 页面空闲时预热运行时（手动模式与 `save-data` 连接跳过），第一张图只需付布局的时间。
+- 渲染跑在独立的最小同源 iframe 里，宿主页面的样式表与 DOM 不再拖慢 Mermaid 的测量；iframe 被拦截时自动回退到页内渲染。
 - 流式输出期间不会渲染半截源码。
 - 渲染结果按「配色 + 源码」缓存，切换「代码/图形」或重开全屏都是零成本。
 - 解析失败时保留源码并给一行错误提示。

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Mermaid render sandbox</title>
+<!--
+  Isolated renderer for dsh-mermaid-plus.
+
+  The app page carries a large stylesheet and a deep DOM; Mermaid measures text
+  and lays out SVG against whatever document it runs in, and that made a single
+  diagram cost seconds. This document has none of that: a reset, Mermaid, and a
+  postMessage bridge. The parent keeps the visual card and only receives SVG.
+-->
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  body { font-family: Arial, "Microsoft YaHei", sans-serif; }
+  svg { max-width: none; }
+</style>
+</head>
+<body>
+<script type="module" src="./renderer-frame.js"></script>
+</body>
+</html>

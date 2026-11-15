@@ -254,6 +254,13 @@ window.__ModuleLoader__.load({
 			if (navigator.connection?.saveData === true) return;
 			prefetchScheduled = true;
 			const warm = () => {
+				if (SANDBOX && !sandboxFailed) {
+					openSandbox().ready.catch(() => {
+						sandboxFailed = true;
+						closeSandbox();
+					});
+					return;
+				}
 				loadRuntime().catch(() => {
 					prefetchScheduled = false;
 				});
@@ -267,6 +274,95 @@ window.__ModuleLoader__.load({
 			if (document.readyState === 'complete') scheduleWarm();
 			else window.addEventListener('load', scheduleWarm, { once: true });
 		}
+
+		//#region sandbox
+		/**
+		 * Render inside a minimal same-origin document.
+		 *
+		 * Mermaid measures text and lays out SVG against whatever document it runs
+		 * in; the app's document carries a large stylesheet and thousands of nodes,
+		 * and one diagram there took seconds while the same one took ~200 ms in a
+		 * blank page. The iframe holds only a reset and Mermaid, so measurement and
+		 * layout stay cheap. It still runs on this thread — but on a quiet one.
+		 */
+		const SANDBOX = typeof window.requestIdleCallback === 'function';
+		let sandbox = null;
+		let sandboxFailed = false;
+		let sandboxSeq = 0;
+
+		function closeSandbox() {
+			if (sandbox === null) return;
+			const box = sandbox;
+			sandbox = null;
+			window.removeEventListener('message', box.onMessage);
+			for (const job of box.pending.values()) {
+				window.clearTimeout(job.timer);
+				job.reject(new Error('sandbox closed'));
+			}
+			box.pending.clear();
+			box.frame.remove();
+		}
+
+		/** Create the frame and settle its ready promise once the renderer answers. */
+		function openSandbox() {
+			if (sandbox !== null) return sandbox;
+			const frame = document.createElement('iframe');
+			frame.setAttribute('aria-hidden', 'true');
+			frame.tabIndex = -1;
+			frame.title = 'Mermaid render sandbox';
+			frame.style.cssText =
+				'position:fixed;left:-10000px;top:0;width:320px;height:240px;border:0;opacity:0;pointer-events:none';
+			const pending = new Map();
+			let settleReady;
+			let failReady;
+			const ready = new Promise((resolve, reject) => {
+				settleReady = resolve;
+				failReady = reject;
+			});
+			const box = { frame, pending, ready, onMessage: null };
+			box.onMessage = (event) => {
+				if (event.source !== frame.contentWindow) return;
+				const data = event.data;
+				if (data === null || typeof data !== 'object') return;
+				if (data.type === 'dsh-mdm-ready') {
+					settleReady();
+					return;
+				}
+				if (data.type !== 'dsh-mdm-rendered') return;
+				const job = pending.get(data.id);
+				if (job === undefined) return;
+				pending.delete(data.id);
+				window.clearTimeout(job.timer);
+				if (typeof data.svg === 'string' && data.svg !== '') job.resolve({ svg: data.svg, ms: Number(data.ms) || 0 });
+				else job.reject(new Error(String(data.error ?? 'sandbox render failed')));
+			};
+			window.addEventListener('message', box.onMessage);
+			frame.src = new URL(`${RUNTIME_PATH}/renderer.html`, document.baseURI).href;
+			document.body.appendChild(frame);
+			sandbox = box;
+			const timer = window.setTimeout(() => failReady(new Error('sandbox did not become ready')), 5000);
+			ready.then(
+				() => window.clearTimeout(timer),
+				() => window.clearTimeout(timer),
+			);
+			return box;
+		}
+
+		/** Render one diagram in the sandbox and hand back its SVG. */
+		async function renderInSandbox(source, dark) {
+			const box = openSandbox();
+			await box.ready;
+			const id = ++sandboxSeq;
+			return await new Promise((resolve, reject) => {
+				const timer = window.setTimeout(() => {
+					box.pending.delete(id);
+					reject(new Error('sandbox render timed out'));
+				}, 30000);
+				box.pending.set(id, { resolve, reject, timer });
+				box.frame.contentWindow?.postMessage({ type: 'dsh-mdm-render', id, source, dark }, window.location.origin);
+			});
+		}
+		//#endregion
 
 		/** Yield to the browser so a burst of diagrams never freezes input. */
 		function breathe() {
@@ -962,6 +1058,16 @@ window.__ModuleLoader__.load({
 			const expected = revision;
 			const startedAt = performance.now();
 			entry.promise = enqueue(async () => {
+				if (SANDBOX && !sandboxFailed) {
+					try {
+						const out = await renderInSandbox(source, palette.dark);
+						return { rendered: { svg: out.svg }, renderMs: out.ms, via: 'sandbox' };
+					} catch {
+						// The sandbox is an optimisation, never a dependency.
+						sandboxFailed = true;
+						closeSandbox();
+					}
+				}
 				const renderStart = performance.now();
 				const mermaid = await loadRuntime();
 				mermaid.initialize({
@@ -980,7 +1086,7 @@ window.__ModuleLoader__.load({
 				return { rendered, renderMs: Math.round(performance.now() - renderStart) };
 			});
 			entry.promise.then(
-				({ rendered: result, renderMs }) => {
+				({ rendered: result, renderMs, via = 'inline' }) => {
 					entry.promise = null;
 					if (!entry.pre.isConnected || entries.get(entry.pre) !== entry) return;
 					if (expected !== revision || entry.pre.textContent !== source) {
@@ -1009,6 +1115,7 @@ window.__ModuleLoader__.load({
 						ms: Math.round(performance.now() - startedAt),
 						renderMs,
 						mountMs,
+						via,
 						nodes: document.getElementsByTagName('*').length,
 						jank: jankSlow,
 						jankMax,
@@ -1494,6 +1601,7 @@ window.__ModuleLoader__.load({
 				observer = null;
 			}
 			window.removeEventListener('scroll', noteScroll);
+			closeSandbox();
 			if (zoomFrame !== 0) {
 				window.cancelAnimationFrame(zoomFrame);
 				zoomFrame = 0;

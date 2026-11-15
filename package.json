@@ -1,6 +1,6 @@
 {
   "name": "dsh-mermaid-plus",
-  "version": "0.4.6",
+  "version": "0.5.0",
   "description": "Mermaid 12 ELK diagrams for DSH 0.2.2-rc.1 with inline wheel zoom, pan and SVG/PNG export.",
   "license": "MIT",
   "author": "pidongqianqian",
@@ -40,6 +40,7 @@
     "vendor/mermaid.esm.min.mjs",
     "vendor/mermaid.LICENSE",
     "vendor/elkjs.LICENSE",
+    "renderer/",
     "locale/*.json",
     "cordis.patch.yml",
     "icon.svg",

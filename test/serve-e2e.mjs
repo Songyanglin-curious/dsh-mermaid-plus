@@ -15,6 +15,8 @@ import { fileURLToPath } from 'node:url';
 const rootDir = fileURLToPath(new URL('./e2e/', import.meta.url));
 /** The real vendored runtime, served under the same route the Host uses. */
 const vendorDir = fileURLToPath(new URL('../vendor/', import.meta.url));
+/** The isolated renderer the browser half loads in an iframe. */
+const rendererDir = fileURLToPath(new URL('../renderer/', import.meta.url));
 /** The shipped browser bundle, served at the path the page imports. */
 const clientFile = fileURLToPath(new URL('../client.js', import.meta.url));
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.map': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -23,7 +25,9 @@ const server = createServer(async (req, res) => {
 	// Mirror the Host's own route so the page loads the runtime exactly as the app does.
 	const vendor = path.startsWith('/x-dsh-mermaid-plus/') ? path.slice('/x-dsh-mermaid-plus/'.length) : null;
 	const target = vendor !== null
-		? join(vendorDir, normalize(vendor))
+		? vendor === 'renderer.html' || vendor === 'renderer-frame.js'
+			? join(rendererDir, normalize(vendor))
+			: join(vendorDir, normalize(vendor))
 		: path === '/client.js'
 			? clientFile
 			: join(rootDir, normalize(path === '/' ? '/index.html' : path));
