@@ -204,10 +204,10 @@ Worked example — the SimForge architecture document has 9 Mermaid blocks:
 ```sh
 node tools/extract-mermaid.mjs "D:\SimForge_当前系统架构与数据流转全景.md" test/e2e/simforge-panorama.md
 node test/render-page.mjs --md=simforge-panorama.md --out=docs/simforge-panorama.png
-# simforge.html?md=simforge-panorama.md: 8/9 rendered, 1 failed
+# simforge.html?md=simforge-panorama.md: 9/9 rendered, 0 failed
 ```
 
-The ninth fails on purpose: that diagram's `Note` writes `GenerateData[A:p1,p2; B:p3]`, and Mermaid treats the ASCII `;` inside a `sequenceDiagram` as a statement separator (`Parse error on line 15`). The extracted file keeps the source verbatim, so the failure is visible instead of hidden; `test/e2e/simforge-complex.md` is the same diagram with a full-width `；`. Result sheet: [docs/simforge-panorama.png](docs/simforge-panorama.png).
+That document used to fail on one diagram: its `Note` wrote `GenerateData[A:p1,p2; B:p3]`, and Mermaid treats an ASCII `;` inside a `sequenceDiagram` as a statement separator (`Parse error on line 15`). The source now uses a full-width `；`, so all nine render; the extractor still copies verbatim, which is how the defect surfaced in the first place. Result sheet: [docs/simforge-panorama.png](docs/simforge-panorama.png).
 
 ## License
 
@@ -250,7 +250,7 @@ node test/render-page.mjs --md=<名字>.md --out=docs/<名字>.png
 
 ```sh
 node test/render-page.mjs --md=simforge-panorama.md --out=docs/simforge-panorama.png
-# simforge.html?md=simforge-panorama.md: 8/9 rendered, 1 failed
+# simforge.html?md=simforge-panorama.md: 9/9 rendered, 0 failed
 ```
 
-失败的那张是原文缺陷：`Note` 里 `GenerateData[A:p1,p2; B:p3]` 用了半角 `;`，Mermaid 在 `sequenceDiagram` 中把它当语句分隔符（`Parse error on line 15`）。抽取文件保持逐字，所以失败会暴露；`test/e2e/simforge-complex.md` 里是把它改成全角 `；` 的版本。整页结果：[docs/simforge-panorama.png](docs/simforge-panorama.png)。
+这份文档以前有一张图渲染失败：`Note` 里 `GenerateData[A:p1,p2; B:p3]` 用了半角 `;`，Mermaid 在 `sequenceDiagram` 中把它当语句分隔符（`Parse error on line 15`）。原文已改成全角 `；`，现在 9 张全部通过；抽取工具坚持逐字复制，也正是这个缺陷当初能被发现的原因。整页结果：[docs/simforge-panorama.png](docs/simforge-panorama.png)。

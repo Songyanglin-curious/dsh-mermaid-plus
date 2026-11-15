@@ -6,8 +6,6 @@
 
 > 图块内容与原文逐字一致；每块下方标注原文标题与行号（1-based，行号指 ```mermaid 围栏所在行）。
 
-> 逐字保真：第 4 张（流程 D）的 Note 用半角分号 `GenerateData[A:p1,p2; B:p3]`，Mermaid 12.2.0 在 sequenceDiagram 里把 `;` 当语句分隔符，因此解析失败——这是原文缺陷，故意保留；改好分号的那份见 `simforge-complex.md`。
-
 ---
 
 ## 1. 3.3 系统整体架构图（flowchart）
@@ -187,7 +185,7 @@ sequenceDiagram
     loop 每 100ms 现实 tick
         CLK->>ES: SchedulerTickOnce(clock.Now)
         ES->>ES: CollectDueBatches：全局最小网格点 M ≤ now
-        Note over ES: 同刻跨设备合并：<br/>GenerateData[A:p1,p2; B:p3] + ReportData[A,B]<br/>（GenerateData 恒在 ReportData 前）
+        Note over ES: 同刻跨设备合并：<br/>GenerateData[A:p1,p2；B:p3] + ReportData[A,B]<br/>（GenerateData 恒在 ReportData 前）
         ES->>BQ: TryWrite(Batch{ BatchTime=M })
         Note over BQ: 队列满 → EnterError（时钟冻结、停止产批次）
     end
