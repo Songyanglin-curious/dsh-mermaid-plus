@@ -962,6 +962,7 @@ window.__ModuleLoader__.load({
 			const expected = revision;
 			const startedAt = performance.now();
 			entry.promise = enqueue(async () => {
+				const renderStart = performance.now();
 				const mermaid = await loadRuntime();
 				mermaid.initialize({
 					startOnLoad: false,
@@ -975,10 +976,11 @@ window.__ModuleLoader__.load({
 					deterministicIds: false,
 					logLevel: 'fatal',
 				});
-				return await mermaid.render(`dsh-mdm-${++uid}`, source);
+				const rendered = await mermaid.render(`dsh-mdm-${++uid}`, source);
+				return { rendered, renderMs: Math.round(performance.now() - renderStart) };
 			});
 			entry.promise.then(
-				(result) => {
+				({ rendered: result, renderMs }) => {
 					entry.promise = null;
 					if (!entry.pre.isConnected || entries.get(entry.pre) !== entry) return;
 					if (expected !== revision || entry.pre.textContent !== source) {
@@ -992,6 +994,7 @@ window.__ModuleLoader__.load({
 					if (typeof result?.svg !== 'string' || result.svg === '') {
 						throw new Error('mermaid produced an empty diagram');
 					}
+					const mountStart = performance.now();
 					remember(key, result.svg);
 					entry.surface = palette.palette.background;
 					entry.surfaceDark = palette.dark;
@@ -999,7 +1002,17 @@ window.__ModuleLoader__.load({
 					entry.state = 'ok';
 					paint(entry);
 					applyZoom(entry);
-					report('render-ok', { chars: source.length, svg: result.svg.length, ms: Math.round(performance.now() - startedAt), jank: jankSlow, jankMax });
+					const mountMs = Math.round(performance.now() - mountStart);
+					report('render-ok', {
+						chars: source.length,
+						svg: result.svg.length,
+						ms: Math.round(performance.now() - startedAt),
+						renderMs,
+						mountMs,
+						nodes: document.getElementsByTagName('*').length,
+						jank: jankSlow,
+						jankMax,
+					});
 					hub.emit({ rendered: countState('ok'), failed: countState('error'), error: null });
 				},
 				(error) => {
