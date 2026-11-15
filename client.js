@@ -553,6 +553,9 @@ window.__ModuleLoader__.load({
 		let scanTimer = null;
 		/** Last scroll timestamp: rendering waits for the reader to stop moving. */
 		let lastScrollAt = 0;
+		/** Main-thread stalls >= 100 ms since mount — the freeze a reader actually feels. */
+		let jankSlow = 0;
+		let jankMax = 0;
 		const noteScroll = () => {
 			lastScrollAt = Date.now();
 		};
@@ -647,6 +650,22 @@ window.__ModuleLoader__.load({
 			}
 			if (entry.expand !== null) entry.expand.hidden = entry.state !== 'ok';
 			entry.root?.setAttribute('data-dsh-mermaid-state', entry.state);
+		}
+
+		/** Resize notifications are coalesced into one rAF: N cards, one layout pass. */
+		const zoomQueue = new Set();
+		let zoomFrame = 0;
+		function queueZoom(entry) {
+			zoomQueue.add(entry);
+			if (zoomFrame !== 0) return;
+			zoomFrame = window.requestAnimationFrame(() => {
+				zoomFrame = 0;
+				const batch = [...zoomQueue];
+				zoomQueue.clear();
+				for (const item of batch) {
+					if (item.pre.isConnected && entries.get(item.pre) === item) applyZoom(item);
+				}
+			});
 		}
 
 		/** 按原始比例设置占位尺寸，使用自动适应或用户选择的缩放比例。 */
@@ -874,7 +893,7 @@ window.__ModuleLoader__.load({
 			entries.set(pre, entry);
 			paint(entry);
 			if (typeof ResizeObserver === 'function') {
-				entry.resize = new ResizeObserver(() => applyZoom(entry));
+				entry.resize = new ResizeObserver(() => queueZoom(entry));
 				entry.resize.observe(entry.body);
 			}
 			// Observe the card itself: a diagram below the fold must not render.
@@ -941,6 +960,7 @@ window.__ModuleLoader__.load({
 			entry.error.textContent = '';
 			paint(entry);
 			const expected = revision;
+			const startedAt = performance.now();
 			entry.promise = enqueue(async () => {
 				const mermaid = await loadRuntime();
 				mermaid.initialize({
@@ -979,7 +999,7 @@ window.__ModuleLoader__.load({
 					entry.state = 'ok';
 					paint(entry);
 					applyZoom(entry);
-					report('render-ok', { chars: source.length, svg: result.svg.length });
+					report('render-ok', { chars: source.length, svg: result.svg.length, ms: Math.round(performance.now() - startedAt), jank: jankSlow, jankMax });
 					hub.emit({ rendered: countState('ok'), failed: countState('error'), error: null });
 				},
 				(error) => {
@@ -1429,6 +1449,19 @@ window.__ModuleLoader__.load({
 			observer = new MutationObserver(() => scan());
 			observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
 			window.addEventListener('scroll', noteScroll, { passive: true });
+			try {
+				if (typeof PerformanceObserver === 'function') {
+					new PerformanceObserver((list) => {
+						for (const item of list.getEntries()) {
+							if (item.duration < 100) continue;
+							jankSlow += 1;
+							jankMax = Math.max(jankMax, Math.round(item.duration));
+						}
+					}).observe({ entryTypes: ['longtask'] });
+				}
+			} catch {
+				/* longtask is not observable in every browser */
+			}
 			watchPalette();
 			syncReveal();
 			// A safety net for content that arrives without a mutation this observer
@@ -1448,6 +1481,11 @@ window.__ModuleLoader__.load({
 				observer = null;
 			}
 			window.removeEventListener('scroll', noteScroll);
+			if (zoomFrame !== 0) {
+				window.cancelAnimationFrame(zoomFrame);
+				zoomFrame = 0;
+			}
+			zoomQueue.clear();
 			if (paletteTimer !== null) {
 				window.clearInterval(paletteTimer);
 				paletteTimer = null;
