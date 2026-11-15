@@ -1,8 +1,9 @@
 import { createReadStream, readFileSync } from 'node:fs';
-import { mkdir, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { extname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 
 /**
  * Host half of the Mermaid diagram bundle.
@@ -45,7 +46,34 @@ const MIME = {
 const ALLOWED = /^[A-Za-z0-9][A-Za-z0-9._-]*\.(?:mjs|js|map|txt|LICENSE|license)$/;
 
 /**
+ * Media types the browser half fetches on a cold page: gzipped once and kept
+ * around, because the Mermaid runtime is 5 MB and every session asks for it.
+ */
+const COMPRESSIBLE = new Set(['.mjs', '.js', '.map', '.txt', '.license']);
+
+/** Gzipped bodies keyed by file, invalidated by size+mtime. At most a few MB. */
+const COMPRESSED = new Map();
+const COMPRESSED_LIMIT = 4;
+
+/** Gzip one vendored file, reusing the previous body until the file changes. */
+async function gzippedBody(target, info) {
+	const revision = `${info.size}:${Math.floor(info.mtimeMs)}`;
+	const cached = COMPRESSED.get(target);
+	if (cached !== undefined && cached.revision === revision) return cached.body;
+	const body = gzipSync(await readFile(target), { level: 6 });
+	if (COMPRESSED.size >= COMPRESSED_LIMIT) COMPRESSED.clear();
+	COMPRESSED.set(target, { revision, body });
+	return body;
+}
+
+/**
  * Serve one vendored runtime file by name.
+ *
+ * The URL carries `?v=<runtime version>`, so a versioned request can be cached
+ * forever; a request without it keeps revalidating by ETag instead. Gzip is
+ * offered for the big JavaScript bodies — on loopback the transfer is fast, but
+ * the browser still parses whatever it receives, and the compressed form is a
+ * third of the size.
  * @param request - Node HTTP request under the route prefix.
  * @param response - Node HTTP response.
  */
@@ -56,8 +84,11 @@ export async function serveVendorFile(request, response) {
 		return;
 	}
 	let pathname;
+	let versioned;
 	try {
-		pathname = decodeURIComponent(new URL(request.url ?? '/', 'http://dsh.invalid').pathname);
+		const url = new URL(request.url ?? '/', 'http://dsh.invalid');
+		pathname = decodeURIComponent(url.pathname);
+		versioned = url.searchParams.has('v');
 	} catch {
 		response.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
 		response.end('Bad Request');
@@ -83,12 +114,41 @@ export async function serveVendorFile(request, response) {
 		response.end('Not Found');
 		return;
 	}
+	const extension = extname(target).toLowerCase();
+	const etag = `"${info.size.toString(16)}-${Math.floor(info.mtimeMs).toString(16)}"`;
 	const headers = {
-		'content-type': MIME[extname(target).toLowerCase()] ?? 'application/octet-stream',
-		'content-length': String(info.size),
-		'cache-control': 'no-cache',
+		'content-type': MIME[extension] ?? 'application/octet-stream',
+		'cache-control': versioned ? 'public, max-age=31536000, immutable' : 'no-cache',
+		etag,
 		'x-content-type-options': 'nosniff',
 	};
+
+	const ifNoneMatch = request.headers?.['if-none-match'];
+	if (typeof ifNoneMatch === 'string' && (ifNoneMatch === '*' || ifNoneMatch.split(',').some((tag) => tag.trim() === etag))) {
+		response.writeHead(304, headers);
+		response.end();
+		return;
+	}
+
+	const acceptsGzip = typeof request.headers?.['accept-encoding'] === 'string' && /\bgzip\b/.test(request.headers['accept-encoding']);
+	const gzip = acceptsGzip && COMPRESSIBLE.has(extension) && info.size > 1024;
+	if (gzip) {
+		const body = await gzippedBody(target, info);
+		headers['content-encoding'] = 'gzip';
+		headers.vary = 'accept-encoding';
+		headers['content-length'] = String(body.length);
+		if (request.method === 'HEAD') {
+			response.writeHead(200, headers);
+			response.end();
+			return;
+		}
+		response.writeHead(200, headers);
+		response.write(body);
+		response.end();
+		return;
+	}
+
+	headers['content-length'] = String(info.size);
 	if (request.method === 'HEAD') {
 		response.writeHead(200, headers);
 		response.end();

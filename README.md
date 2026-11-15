@@ -5,7 +5,7 @@
 [![DSH](https://img.shields.io/badge/DSH-0.2.2--rc.1-4b5563)](https://github.com/deepseek-ai/DeepSeek-Harness)
 [![install](https://img.shields.io/badge/dsh%20plugin%20add-dsh--mermaid--plus-5b8def)](#install)
 
-Mermaid diagrams for [DeepSeek Harness](https://github.com/deepseek-ai/DeepSeek-Harness) — rendered automatically by default, with inline zoom, drag to pan, fullscreen viewing, and SVG/PNG export.
+Mermaid diagrams for [DeepSeek Harness](https://github.com/deepseek-ai/DeepSeek-Harness) — rendered when they scroll into view, with inline zoom, drag to pan, fullscreen viewing, and SVG/PNG export.
 
 [中文说明](#中文说明)
 
@@ -21,7 +21,7 @@ Mermaid diagrams for [DeepSeek Harness](https://github.com/deepseek-ai/DeepSeek-
 | --- | --- |
 | 渲染核心 | Mermaid 从 11.17.0 升级并固定为 **12.2.0 完整版**，离线打包内置 ELK，不依赖 CDN。 |
 | 布局与风格 | 默认 **ELK + Neo**，浅色使用 **Redux Color**，深色使用 **Redux Dark Color**；不再用 DSH 自定义节点配色覆盖官方主题。 |
-| 默认展示 | 源码稳定后自动渲染并展示图形，仍保留手动、滚动可见、立即三种模式和代码切换。新版首次使用不继承旧版默认手动偏好。 |
+| 默认展示 | 图表滚到可见处才渲染（视口内一次只渲染需要的），仍保留手动、立即两种模式与代码切换。旧版默认值不继承：设置里的选择会保存。 |
 | 卡片工具栏 | 增加缩小、放大、适应窗口、1:1、全屏、SVG 和 PNG 导出。 |
 | 鼠标操作 | 图形区域内滚轮围绕指针缩放，左键拖拽平移；区域外仍正常滚动页面。 |
 | 显示与生命周期 | 按 SVG 原始比例设置占位尺寸，限制预览高度；缓存加入渲染配置版本，拒绝源码更新或卸载后的过期异步结果。 |
@@ -78,8 +78,8 @@ Mermaid diagrams for [DeepSeek Harness](https://github.com/deepseek-ai/DeepSeek-
 A fenced ` ```mermaid ` block in the conversation (or in a Markdown file preview) becomes a card:
 
 - **On demand** — the source stays visible and a `Diagram` button waits in the card header. The offline Mermaid runtime is loaded only when requested.
-- **When visible** — a diagram renders the first time its card scrolls into view.
-- **Always (default)** — renders when the source settles, then displays the diagram. The new preference key resets the previous default manual mode once; subsequent choices are saved.
+- **When visible (default)** — a diagram renders the first time its card scrolls into view, so a long answer with many diagrams does not render them all at once.
+- **Always** — renders when the source settles, then displays the diagram. Choices are saved per install.
 
 The inline toolbar offers −, +, fit, 1:1, fullscreen, SVG, and PNG. Use the wheel inside the diagram viewport to zoom around the pointer, and left-drag to pan. Outside the viewport, the wheel scrolls the page normally. SVG preserves natural dimensions; PNG uses the current background with a maximum long edge of 8192 pixels.
 
@@ -183,11 +183,31 @@ npm ci                      # mermaid 12.2.0, esbuild, jsdom
 node build.mjs              # rebuild vendor/mermaid.esm.min.mjs
 node test/run.mjs           # host route, real cordis mount, jsdom browser-half behaviour
 node test/serve-e2e.mjs     # open http://127.0.0.1:8732/ (assertions) or /simforge.html (8 complex diagrams)
+node test/render-page.mjs   # same eyeball page headless: verdict, per-diagram failures, optional screenshot
 node tools/doctor.mjs       # activation, install mode, last browser events
 node tools/dev-sync.mjs     # copy this checkout over an npm-installed copy
 ```
 
 [`docs/development.md`](docs/development.md) covers the debug loop, what each symptom means, and the release flow.
+
+### Rendering regression on a real document
+
+Lift every Mermaid fence out of a document, render it with the shipped bundle in headless Chrome, and keep a screenshot:
+
+```sh
+node tools/extract-mermaid.mjs <doc.md> test/e2e/<name>.md   # verbatim copy, with headings and line numbers
+node test/render-page.mjs --md=<name>.md --out=docs/<name>.png
+```
+
+Worked example — the SimForge architecture document has 9 Mermaid blocks:
+
+```sh
+node tools/extract-mermaid.mjs "D:\SimForge_当前系统架构与数据流转全景.md" test/e2e/simforge-panorama.md
+node test/render-page.mjs --md=simforge-panorama.md --out=docs/simforge-panorama.png
+# simforge.html?md=simforge-panorama.md: 8/9 rendered, 1 failed
+```
+
+The ninth fails on purpose: that diagram's `Note` writes `GenerateData[A:p1,p2; B:p3]`, and Mermaid treats the ASCII `;` inside a `sequenceDiagram` as a statement separator (`Parse error on line 15`). The extracted file keeps the source verbatim, so the failure is visible instead of hidden; `test/e2e/simforge-complex.md` is the same diagram with a full-width `；`. Result sheet: [docs/simforge-panorama.png](docs/simforge-panorama.png).
 
 ## License
 
@@ -199,7 +219,7 @@ MIT; the upstream author's copyright notice is retained in [LICENSE](LICENSE). B
 
 把对话（以及 Markdown 预览）里的 ` ```mermaid ` 代码块渲染成图表卡片。
 
-**默认自动展示图形**：源码稳定后渲染为图表；也可在设置中选择「手动」或「滚动可见」。卡片保留「代码」切换，并提供缩小、放大、适应窗口、1:1、全屏、SVG 和 PNG 导出。鼠标在图形区域内时，滚轮缩放、左键拖拽平移；区域外正常滚动页面。
+**默认滚到可见处才渲染**：图表进入视口时才渲染并展示，长回答里的多张图不会一起抢占运行时。设置里可切到「立即」或「手动」。卡片保留「代码」切换，并提供缩小、放大、适应窗口、1:1、全屏、SVG 和 PNG 导出。鼠标在图形区域内时，滚轮缩放、左键拖拽平移；区域外正常滚动页面。
 
 渲染后的图表可以**全屏放大**：滚轮缩放、拖动平移、双击适应窗口、`Esc` 关闭；全屏只克隆已有 SVG，不会重新渲染。
 
@@ -216,3 +236,21 @@ MIT; the upstream author's copyright notice is retained in [LICENSE](LICENSE). B
 兼容 DSH `0.2.2-rc.1`。DSH 处于开发者预览阶段，客户端插件契约可能变化；本插件装饰渲染后的 `<pre><code>`，是最容易受影响的一层——若某次升级后卡片不再出现，代码块本身仍然完好。
 
 排障：浏览器半侧会把生命周期事件报告给 Host，写入 `<系统临时目录>/dsh-mermaid-plus/report.json`（`start` / `adopted` / `render-ok` / `render-error` / `apply-ok` / `apply-throw`）。
+
+## 用真实文档做渲染回归
+
+`tools/extract-mermaid.mjs` 把一个 Markdown 里的 mermaid 代码块逐字抽成测试集（保留小节标题与行号），`test/render-page.mjs` 用出货的 `client.js` 在无头 Chrome 里渲染并给出判定：
+
+```sh
+node tools/extract-mermaid.mjs <文档.md> test/e2e/<名字>.md
+node test/render-page.mjs --md=<名字>.md --out=docs/<名字>.png
+```
+
+仓库里的例子是《SimForge_当前系统架构与数据流转全景》的 9 张图（`test/e2e/simforge-panorama.md`）：
+
+```sh
+node test/render-page.mjs --md=simforge-panorama.md --out=docs/simforge-panorama.png
+# simforge.html?md=simforge-panorama.md: 8/9 rendered, 1 failed
+```
+
+失败的那张是原文缺陷：`Note` 里 `GenerateData[A:p1,p2; B:p3]` 用了半角 `;`，Mermaid 在 `sequenceDiagram` 中把它当语句分隔符（`Parse error on line 15`）。抽取文件保持逐字，所以失败会暴露；`test/e2e/simforge-complex.md` 里是把它改成全角 `；` 的版本。整页结果：[docs/simforge-panorama.png](docs/simforge-panorama.png)。

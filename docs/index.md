@@ -6,6 +6,7 @@
 
 - [development.md](development.md)：上游开发与浏览器验证方法。
 - [simforge-test.png](simforge-test.png)：本地 8 张 SimForge 复杂图整页渲染效果（0.4.0）。
+- [simforge-panorama.png](simforge-panorama.png)：《当前系统架构与数据流转全景》9 张图逐字提炼后的整页渲染，8/9（流程 D 的 Note 用半角分号，Mermaid 解析失败）。
 - [real-app-chat.png](real-app-chat.png)：web profile 真机对话中渲染的 Mermaid 卡片（DSH 0.2.2-rc.1）。
 - [card.png](card.png)：上游图表卡片示例。
 - [viewer-dark.png](viewer-dark.png)：上游深色查看器示例。

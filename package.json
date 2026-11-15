@@ -26,7 +26,7 @@
   },
   "meta": {
     "title": "Mermaid Diagrams Plus",
-    "description": "Automatically renders Mermaid diagrams with ELK layouts, theme-aware styling, wheel zoom, drag to pan, fullscreen viewing and SVG/PNG export."
+    "description": "Renders Mermaid diagrams with ELK layouts when they scroll into view, with theme-aware colours, wheel zoom, drag to pan, fullscreen viewing and SVG/PNG export."
   },
   "exports": {
     ".": "./index.js",

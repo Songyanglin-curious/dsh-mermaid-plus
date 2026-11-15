@@ -46,8 +46,11 @@ window.__ModuleLoader__.load({
 		const MODE_KEY = `${PKG}.mode.v2`;
 		/** Render modes, in the order the settings row offers them. */
 		const MODES = ['manual', 'visible', 'always'];
-		/** 默认在源码稳定后自动展示图形，仍允许用户选择手动或滚动可见模式。 */
-		const DEFAULT_MODE = 'always';
+		/**
+		 * 默认等图表滚到可见处再渲染：一段回答里常有好几张图，全部立刻渲染会让首屏
+		 * 等着 5 MB 运行时把每张图都算一遍。用户仍可在设置里选「立即」或「手动」。
+		 */
+		const DEFAULT_MODE = 'visible';
 		/** Refuse pathological diagrams before they reach Mermaid. */
 		const MAX_SOURCE_CHARS = 50000;
 		/**

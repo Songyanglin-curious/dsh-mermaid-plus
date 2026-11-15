@@ -13,8 +13,10 @@
      http://127.0.0.1:8732/simforge.html?dark=1   # 深色
      http://127.0.0.1:8732/simforge.html?source=1 # 展开源码视图
 
-  图源只有一份：./simforge-complex.md。页面读它、按 \`\`\`mermaid 切块，
-  再把每块包成 <pre><code class="language-mermaid">——渲染器真实产出的形状。
+  图源只有一份：默认 ./simforge-complex.md（混合抽取），也可用
+  ?md=simforge-panorama.md 换成整篇《当前系统架构与数据流转全景》的 9 张图。
+  页面读它、按 \`\`\`mermaid 切块，再把每块包成
+  <pre><code class="language-mermaid">——渲染器真实产出的形状。
 -->
 <script type="importmap">
 { "imports": { "react": "https://esm.sh/react@18.3.1" } }
@@ -35,8 +37,8 @@
 </head>
 <body>
 <div id="transcript">
-  <h1>SimForge 复杂 Mermaid 集成测试</h1>
-  <p class="meta">8 张图来自 D:\code\SimForge\docs；用出货的 client.js 渲染。</p>
+  <h1>SimForge Mermaid 渲染测试</h1>
+  <p class="meta" id="meta">loading…</p>
 </div>
 <div class="status" id="status">loading…</div>
 
@@ -56,8 +58,12 @@ const params = new URLSearchParams(location.search);
 const dark = params.has('dark');
 if (dark) document.documentElement.dataset.theme = 'dark';
 
+// 图源文件：只接受同目录的 .md 文件名，避免把 ?md= 当成任意路径读取。
+const mdFile = params.get('md') ?? 'simforge-complex.md';
+if (!/^[A-Za-z0-9._-]+\.md$/.test(mdFile)) throw new Error(`unexpected md file: ${mdFile}`);
+
 // 1. 把 Markdown 切成图块，渲染成 Chat 渲染器的形状。
-const md = await (await fetch('./simforge-complex.md')).text();
+const md = await (await fetch(`./${mdFile}`)).text();
 const blocks = [];
 {
   const lines = md.split(/\r?\n/);
@@ -84,6 +90,7 @@ const blocks = [];
 }
 
 const transcript = document.getElementById('transcript');
+document.getElementById('meta').textContent = `图源 ${mdFile} · ${blocks.length} 张图 · 用出货的 client.js 渲染`;
 for (const block of blocks) {
   const h2 = document.createElement('h2');
   h2.textContent = block.title;
