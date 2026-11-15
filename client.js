@@ -258,17 +258,38 @@ window.__ModuleLoader__.load({
 					prefetchScheduled = false;
 				});
 			};
-			if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(warm, { timeout: 3000 });
-			else window.setTimeout(warm, 1200);
+			const scheduleWarm = () => {
+				if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(warm, { timeout: 4000 });
+				else window.setTimeout(warm, 1500);
+			};
+			// Never compile 5 MB while the page is still loading the conversation: the
+			// warm-up is for later, so it waits until the document has settled.
+			if (document.readyState === 'complete') scheduleWarm();
+			else window.addEventListener('load', scheduleWarm, { once: true });
 		}
 
-		/** Serial queue: Mermaid renders one diagram at a time, and a failure never blocks the next. */
+		/** Yield to the browser so a burst of diagrams never freezes input. */
+		function breathe() {
+			return new Promise((resolve) => {
+				if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(() => resolve(), { timeout: 400 });
+				else window.setTimeout(resolve, 32);
+			});
+		}
+
+		/** Mermaid renders one at a time; a queued burst also breathes between items. */
 		let queue = Promise.resolve();
+		let pendingTasks = 0;
 		function enqueue(task) {
-			const next = queue.then(task, task);
+			pendingTasks += 1;
+			const run = () => (pendingTasks > 1 ? breathe().then(task) : task());
+			const next = queue.then(run, run);
 			queue = next.then(
-				() => undefined,
-				() => undefined,
+				() => {
+					pendingTasks -= 1;
+				},
+				() => {
+					pendingTasks -= 1;
+				},
 			);
 			return next;
 		}
@@ -530,6 +551,11 @@ window.__ModuleLoader__.load({
 		let paletteKey = '';
 		let sweepTimer = null;
 		let scanTimer = null;
+		/** Last scroll timestamp: rendering waits for the reader to stop moving. */
+		let lastScrollAt = 0;
+		const noteScroll = () => {
+			lastScrollAt = Date.now();
+		};
 		let unmatchedReports = 0;
 		let lastStraySignature = '';
 		let uid = 0;
@@ -580,7 +606,7 @@ window.__ModuleLoader__.load({
 					window.clearTimeout(entry.timer);
 					entry.timer = null;
 				}
-				render(entry);
+				render(entry, true);
 				return;
 			}
 			schedule(entry);
@@ -867,8 +893,19 @@ window.__ModuleLoader__.load({
 		}
 
 		/** 根据当前源码与主题串行渲染，拒绝已经失效的异步结果。 */
-		function render(entry) {
+		function render(entry, immediate = false) {
 			if (!entry.pre.isConnected) return;
+			// Rendering while the reader scrolls is what makes the page stutter:
+			// defer it a beat, then start once the viewport is still.
+			if (!immediate && Date.now() - lastScrollAt < 140) {
+				if (entry.timer === null) {
+					entry.timer = window.setTimeout(() => {
+						entry.timer = null;
+						render(entry);
+					}, 140);
+				}
+				return;
+			}
 			const source = entry.pre.textContent ?? '';
 			if (source.trim() === '') {
 				entry.state = 'pending';
@@ -1391,6 +1428,7 @@ window.__ModuleLoader__.load({
 			if (observer !== null) return;
 			observer = new MutationObserver(() => scan());
 			observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+			window.addEventListener('scroll', noteScroll, { passive: true });
 			watchPalette();
 			syncReveal();
 			// A safety net for content that arrives without a mutation this observer
@@ -1409,6 +1447,7 @@ window.__ModuleLoader__.load({
 				observer.disconnect();
 				observer = null;
 			}
+			window.removeEventListener('scroll', noteScroll);
 			if (paletteTimer !== null) {
 				window.clearInterval(paletteTimer);
 				paletteTimer = null;
