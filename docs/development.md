@@ -118,35 +118,38 @@ a DSH upgrade is cleared: unit suite, mount suite, then the app itself.
 
 ## Releasing
 
-By hand:
+完整操作以 [打包发布与更新](打包发布与更新.md) 为准。
+
+本 Fork 通过 GitHub Release 分发 TGZ，不再依赖 npm 发布或 NPM_TOKEN。生成的 TGZ、ZIP 和 dist/ 不进入 Git，已有历史不重写；vendor/ 是运行资源，继续保留。
+
+1. 同步 package.json、package-lock.json 的版本和 README 安装地址。
+2. 执行现有检查并打包：
 
 ```sh
-node test/run.mjs && node test/run-e2e-headless.mjs   # 33 + 45 cases
-npm pkg set version=x.y.z
-git commit -am "Release x.y.z" && git push
-npm publish --access public                            # needs a 2FA-capable token
-gh release create "vx.y.z" --title "vx.y.z" --generate-notes
+npm ci
+npm test
+node test/run-e2e-headless.mjs
+node tools/pack-check.mjs
+npm pack
 ```
 
-By tag (`.github/workflows/release.yml`):
+仅 Mermaid 依赖变化时需先运行 npm run build。
+
+3. 提交源码，推送 main 和与清单一致的版本标签（将 x.y.z 替换为实际版本）：
 
 ```sh
-npm pkg set version=x.y.z
-git commit -am "Release x.y.z" && git push
-git tag "vx.y.z" && git push origin "vx.y.z"          # runs the suites, publishes, opens the release
+git add <本次修改的文件>
+git commit -m "调整打包发布与安装说明"
+git push origin main
+git tag vx.y.z
+git push origin vx.y.z
 ```
 
-The release workflow refuses a tag that does not match `package.json`. It needs
-one repository secret, **`NPM_TOKEN`**: a granular npm access token with
-“Read and write” for this package and **“Bypass 2FA”** enabled — npm rejects
-publishing without 2FA or such a token (`E403`). `workflow_dispatch` on the
-release workflow defaults to a dry run that skips publishing.
+release.yml 检查标签版本、运行原有测试和包清单检查，在 dist/ 生成 TGZ 与 SHA256SUMS.txt，上传至草稿 Release，成功后公开。仅需 GitHub 自带的 GITHUB_TOKEN。手动运行只验证并保存 Actions artifact，不发布。
 
-npm takes a few minutes to expose a new tarball. The README on the npm page comes
-from the published tarball, so documentation-only changes still need a version to
-appear there.
+4. 从 README 的固定版本 Release 地址下载 TGZ 和 SHA256SUMS.txt，核对哈希、包内版本与必要运行文件。确认附件可下载后，安装命令才可用。安装和更新见 [README](../README.md#install)。发布不会自动更新本机。
 
-`files` in `package.json` is the publish whitelist: tooling (`tools/`, `test/`, `build.mjs`) and `docs/` are repository-only.
+package.json 的 files 是安装包白名单；工具、测试和 Docs 不进入 TGZ。
 
 ## Compatibility
 

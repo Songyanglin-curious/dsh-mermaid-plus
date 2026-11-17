@@ -100,43 +100,44 @@ Every rendered diagram can be opened **fullscreen** with zoom and pan, which is 
 
 ## Install
 
-### 直接安装本 Fork（推荐）
+### 从 GitHub Release 安装（推荐）
 
-从 GitHub 安装本仓库的改造版到 `web` Profile：
+本 Fork 的安装包统一放在 [GitHub Releases](https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases)，不提交到源码仓库。选择已发布版本，使用其 Assets 中的 TGZ 地址安装到 `web` Profile。以下以 `v0.5.0` 为例，须在该 Release 的附件上传完成后使用：
 
 ```sh
-dsh plugin --profile web add github:Songyanglin-curious/dsh-mermaid-plus#main
+dsh plugin --profile web add https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases/download/v0.5.0/dsh-mermaid-plus-0.5.0.tgz
 ```
 
-仓库已包含离线 Mermaid 运行时，无需另外构建。安装后重启 `web` 并刷新浏览器页面：
+包内包含离线 Mermaid 运行时，无需克隆源码或构建。安装后重启对应 DSH Profile，并刷新浏览器页面：
 
 ```sh
 dsh --profile web
+dsh plugin --profile web list
 ```
 
-可用 `dsh plugin --profile web list` 确认安装结果。若使用其他 Profile，将命令中的 `web` 替换为实际名称；各 Profile 的插件安装相互独立。
+确认列表中版本与所选 Release 一致。使用其他 Profile 时，将 `web` 换成实际名称，各 Profile 独立安装。
 
-如果该 Profile 已安装同名插件（上游版或旧本地包），先移除再安装：
+### 更新或替换旧版
+
+从 Releases 选择新版本，将下面 URL 中的标签和文件版本同时替换为目标版本。已安装上游版、GitHub 源码版或旧本地包时，先移除同名插件，再安装 Release 包：
 
 ```sh
 dsh plugin --profile web remove dsh-mermaid-plus
-dsh plugin --profile web add github:Songyanglin-curious/dsh-mermaid-plus#main
+dsh plugin --profile web add https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases/download/v0.5.0/dsh-mermaid-plus-0.5.0.tgz
 ```
 
-`main` 跟随本 Fork 后续更新；需要固定代码版本时，可把 `#main` 换成对应 Git 提交的完整 SHA。
+重启 Profile、刷新页面，再用 `dsh plugin --profile web list` 核对版本。固定版本 URL 不会自动升级；回退时安装旧版本的 Release TGZ。
 
-### 本 Fork 的本地验证包
+### 下载后本地安装
 
-从本仓库构建打包，或使用已经生成的 `.tgz` 文件：
+也可以从 Release 下载 TGZ 和 `SHA256SUMS.txt`，用 PowerShell 核对 SHA256 与清单一致后安装：
 
-```sh
-npm ci
-npm run build
-npm pack
-dsh plugin --profile <profile> add /absolute/path/dsh-mermaid-plus-0.4.1.tgz
+```powershell
+Get-FileHash ./dsh-mermaid-plus-0.5.0.tgz -Algorithm SHA256
+dsh plugin --profile web add ./dsh-mermaid-plus-0.5.0.tgz
 ```
 
-重启对应 DSH Profile 并刷新页面。已安装同名上游包时，先在目标 Profile 移除旧包，再安装本地包；同一个 Profile 中二者会占用同名插件位置。
+开发者自行打包使用 `npm ci`、`npm run build`、`npm pack`；生成的 TGZ 不纳入 Git。
 
 ### 上游发行版
 

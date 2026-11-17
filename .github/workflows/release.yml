@@ -1,55 +1,37 @@
 name: Release
-
-# Publishing is triggered by a tag, never by a branch push: `git tag v0.3.0 &&
-# git push origin v0.3.0` runs the suites, publishes that exact version, and
-# opens the GitHub release.
-#
-# Requires the repository secret NPM_TOKEN: a granular npm access token with
-# "Read and write" for this package and "Bypass 2FA" enabled (npm requires 2FA
-# for publishing; a plain token is rejected with E403).
-
+# 标签触发检查、打包并上传 Release 附件；手动运行仅验证，不发布。
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
       dry-run:
-        description: 'Run every check but skip npm publish'
+        description: 'Run checks and pack without publishing a Release'
         type: boolean
         default: true
-
 permissions:
   contents: write
-
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
-
 jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          registry-url: https://registry.npmjs.org
-
       - name: Install
         run: npm ci
-
       - name: Node-side suites
         run: node test/run.mjs
-
       - name: Real-browser suite
         run: node test/run-e2e-headless.mjs
-
       - name: Publishable tarball shape
         run: node tools/pack-check.mjs
-
       - name: Version and tag agree
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
@@ -59,15 +41,21 @@ jobs:
             echo "tag $tag does not match package.json $version" >&2
             exit 1
           fi
-
-      - name: Publish to npm
+      - name: Pack release assets
+        run: |
+          mkdir -p dist
+          npm pack --pack-destination dist
+          cd dist
+          sha256sum *.tgz > SHA256SUMS.txt
+      - name: Keep validation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: dist/
+      - name: Create the GitHub release with assets
         if: startsWith(github.ref, 'refs/tags/v') && inputs.dry-run != true
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
-
-      - name: Create the GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.tgz dist/SHA256SUMS.txt --draft --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
+          gh release edit "$GITHUB_REF_NAME" --draft=false

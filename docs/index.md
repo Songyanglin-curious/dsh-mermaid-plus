@@ -13,3 +13,5 @@
 - [card.png](card.png)：上游图表卡片示例。
 - [viewer-dark.png](viewer-dark.png)：上游深色查看器示例。
 - [viewer-light.png](viewer-light.png)：上游浅色查看器示例。
+
+- [打包发布与更新.md](打包发布与更新.md)：版本与安装命令同步、打包检查、提交推送、Release 发布及下载回验的固定流程。
