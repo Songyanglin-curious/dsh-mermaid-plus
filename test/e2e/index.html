@@ -372,6 +372,11 @@ if (new URLSearchParams(location.search).has('viewer')) {
 }
 document.title = `E2E ${results.filter((r) => r.ok).length}/${results.length}`;
 window.__E2E__ = results;
+// 将失败断言写入 DOM，供无头浏览器脚本读取具体原因。
+const failures = document.createElement('pre');
+failures.id = 'e2e-failures';
+failures.textContent = results.filter((result) => !result.ok).map((result) => `FAIL ${result.name}: ${result.detail ?? ''}`).join('\n');
+document.body.append(failures);
 </script>
 </body>
 </html>
