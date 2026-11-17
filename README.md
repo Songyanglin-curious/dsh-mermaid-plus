@@ -102,7 +102,7 @@ Every rendered diagram can be opened **fullscreen** with zoom and pan, which is 
 
 ### 从 GitHub Release 安装（推荐）
 
-本 Fork 的安装包统一放在 [GitHub Releases](https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases)，不提交到源码仓库。选择已发布版本，使用其 Assets 中的 TGZ 地址安装到 `web` Profile。以下以 `v0.5.1` 为例，须在该 Release 的附件上传完成后使用：
+本 Fork 的安装包统一放在 [GitHub Releases](https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases)，不提交到源码仓库。选择已发布版本，使用其 Assets 中的 TGZ 地址安装到 `web` Profile。当前发行版本为 `v0.5.1`：
 
 ```sh
 dsh plugin --profile web add https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases/download/v0.5.1/dsh-mermaid-plus-0.5.1.tgz
