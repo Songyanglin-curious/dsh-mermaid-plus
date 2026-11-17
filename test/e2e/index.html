@@ -83,8 +83,8 @@ record('module table', typeof React.createElement === 'function' && typeof creat
 const requestedMode = new URLSearchParams(location.search).get('mode');
 localStorage.setItem('dsh-mermaid.mode', requestedMode ?? 'always');
 localStorage.setItem('dsh-mermaid-plus.mode', requestedMode ?? 'always');
-localStorage.removeItem('dsh-mermaid-plus.mode.v2');
-if (requestedMode) localStorage.setItem('dsh-mermaid-plus.mode.v2', requestedMode);
+// 使用插件当前读取的配置键，确保测试按指定模式运行。
+localStorage.setItem('dsh-mermaid-plus.mode.v2', requestedMode ?? 'always');
 await import('./client.js');
 record('client bundle registers', factories.has('dsh-mermaid-plus'), [...factories.keys()].join(','));
 

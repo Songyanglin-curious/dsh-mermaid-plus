@@ -102,10 +102,10 @@ Every rendered diagram can be opened **fullscreen** with zoom and pan, which is 
 
 ### 从 GitHub Release 安装（推荐）
 
-本 Fork 的安装包统一放在 [GitHub Releases](https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases)，不提交到源码仓库。选择已发布版本，使用其 Assets 中的 TGZ 地址安装到 `web` Profile。以下以 `v0.5.0` 为例，须在该 Release 的附件上传完成后使用：
+本 Fork 的安装包统一放在 [GitHub Releases](https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases)，不提交到源码仓库。选择已发布版本，使用其 Assets 中的 TGZ 地址安装到 `web` Profile。以下以 `v0.5.1` 为例，须在该 Release 的附件上传完成后使用：
 
 ```sh
-dsh plugin --profile web add https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases/download/v0.5.0/dsh-mermaid-plus-0.5.0.tgz
+dsh plugin --profile web add https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases/download/v0.5.1/dsh-mermaid-plus-0.5.1.tgz
 ```
 
 包内包含离线 Mermaid 运行时，无需克隆源码或构建。安装后重启对应 DSH Profile，并刷新浏览器页面：
@@ -123,7 +123,7 @@ dsh plugin --profile web list
 
 ```sh
 dsh plugin --profile web remove dsh-mermaid-plus
-dsh plugin --profile web add https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases/download/v0.5.0/dsh-mermaid-plus-0.5.0.tgz
+dsh plugin --profile web add https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases/download/v0.5.1/dsh-mermaid-plus-0.5.1.tgz
 ```
 
 重启 Profile、刷新页面，再用 `dsh plugin --profile web list` 核对版本。固定版本 URL 不会自动升级；回退时安装旧版本的 Release TGZ。
@@ -133,8 +133,8 @@ dsh plugin --profile web add https://github.com/Songyanglin-curious/dsh-mermaid-
 也可以从 Release 下载 TGZ 和 `SHA256SUMS.txt`，用 PowerShell 核对 SHA256 与清单一致后安装：
 
 ```powershell
-Get-FileHash ./dsh-mermaid-plus-0.5.0.tgz -Algorithm SHA256
-dsh plugin --profile web add ./dsh-mermaid-plus-0.5.0.tgz
+Get-FileHash ./dsh-mermaid-plus-0.5.1.tgz -Algorithm SHA256
+dsh plugin --profile web add ./dsh-mermaid-plus-0.5.1.tgz
 ```
 
 开发者自行打包使用 `npm ci`、`npm run build`、`npm pack`；生成的 TGZ 不纳入 Git。
