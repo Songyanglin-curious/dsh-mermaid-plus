@@ -1,7 +1,7 @@
 {
   "name": "dsh-mermaid-plus",
-  "version": "0.5.1",
-  "description": "Mermaid 12 ELK diagrams for DSH 0.2.2-rc.1 with inline wheel zoom, pan and SVG/PNG export.",
+  "version": "0.5.2",
+  "description": "Mermaid 12 ELK diagrams for DSH 0.2.2-rc.5 with inline wheel zoom, pan and SVG/PNG export.",
   "license": "MIT",
   "author": "pidongqianqian",
   "type": "module",
@@ -75,7 +75,7 @@
     "mermaid": "12.2.0"
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh": "0.2.2-rc.1"
+    "@deepseek-ai/dsh": "0.2.2-rc.5"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/dsh": {
