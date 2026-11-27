@@ -181,12 +181,16 @@ const metrics = svgs().map((svg) => {
 });
 record('diagrams fit their card', metrics.every((m) => m.w > 50 && m.h > 20 && m.overflow <= 1), JSON.stringify(metrics));
 
-// 5a. Ordering: a card must stand where its code block stood, not after it.
-const order = [...document.getElementById('transcript').children].map((node) =>
-  node.classList?.contains('dsh-mdm') ? 'card' : node.tagName === 'PRE' ? 'pre' : node.tagName.toLowerCase(),
+// 5a. 卡片保持原有的显示顺序，宿主的代码节点仍在原处。
+const transcriptChildren = [...document.getElementById('transcript').children];
+const originals = transcriptChildren.filter((node) => node.matches('pre[data-dsh-mdm-original]'));
+const order = transcriptChildren.filter((node) => getComputedStyle(node).display !== 'none').map((node) =>
+  node.classList.contains('dsh-mdm') ? 'card' : node.tagName.toLowerCase(),
 );
 const cardOrder = order.filter((kind) => kind === 'card' || kind === 'pre');
-record('cards stand in place of their code block', cardOrder.join(',') === 'card,card,pre', order.join(','));
+record('cards stand in place of their code block',
+  cardOrder.join(',') === 'card,card,pre' && originals.length === 2
+    && originals.every((pre) => pre.previousElementSibling?.matches('.dsh-mdm')), order.join(','));
 
 // 5. The ordinary code block must be untouched.
 const plain = [...document.querySelectorAll('pre')].filter((pre) => pre.querySelector('code.language-js'));
@@ -268,10 +272,47 @@ for (const chunk of [' --> A', ' --> B', ' --> C']) {
   await new Promise((resolve) => setTimeout(resolve, 220));
   stream.querySelector('code').textContent += chunk;
 }
-settled = await waitFor(() => stream.closest('.dsh-mdm')?.querySelector('.dsh-mdm-svg svg') !== null, 20000);
-const streamSvg = stream.closest('.dsh-mdm')?.querySelector('.dsh-mdm-svg svg');
+settled = await waitFor(() => stream.previousElementSibling?.querySelector('.dsh-mdm-svg svg') != null, 20000);
+const streamSvg = stream.previousElementSibling?.querySelector('.dsh-mdm-svg svg');
 const streamNodes = streamSvg?.querySelectorAll('*').length ?? 0;
 record('streamed block renders once settled', settled, `${streamNodes} svg node(s) for the final source`);
+
+// 模拟 GenUI 将同一个 React 容器里的源码切换成 SVG。
+const genuiFence = document.createElement('div');
+genuiFence.className = 'genui-dom-fence';
+const genuiHost = document.createElement('div');
+genuiHost.className = 'fixture_mermaidFallback';
+const genuiCode = document.createElement('pre');
+genuiCode.textContent = 'flowchart LR\n  G[GenUI] --> P[Mermaid Plus]';
+genuiHost.append(genuiCode);
+genuiFence.append(genuiHost);
+document.getElementById('transcript').append(genuiFence);
+genuiHost.removeChild(genuiCode);
+genuiHost.className = '';
+genuiHost.setAttribute('data-genui-mermaid', '');
+genuiHost.innerHTML = '<svg></svg>';
+const genuiRendered = await waitFor(
+  () => genuiHost.previousElementSibling?.querySelector('.dsh-mdm-svg svg') != null, 20000,
+);
+record('Mermaid Plus takes over the GenUI diagram', genuiRendered
+  && genuiHost.parentElement === genuiFence
+  && getComputedStyle(genuiHost).display === 'none');
+
+// 已渲染的单图围栏仍可从 GenUI 保留的原文恢复源码。
+const savedFence = document.createElement('pre');
+savedFence.setAttribute('data-genui-rendered', '');
+savedFence.hidden = true;
+savedFence.textContent = JSON.stringify({ type: 'mermaid', code: genuiCode.textContent });
+const readyFence = document.createElement('div');
+readyFence.className = 'genui-dom-fence';
+const readyHost = document.createElement('div');
+readyHost.setAttribute('data-genui-mermaid', '');
+readyHost.innerHTML = '<svg></svg>';
+readyFence.append(readyHost);
+document.getElementById('transcript').append(savedFence, readyFence);
+record('Mermaid Plus takes over a previously rendered GenUI diagram', await waitFor(
+  () => readyHost.previousElementSibling?.querySelector('.dsh-mdm-svg svg') != null, 10000,
+) && getComputedStyle(readyHost).display === 'none');
 
 // 8b. The browser half must actually attempt its lifecycle report.
 record('browser half reports lifecycle events', (window.__dshMermaidReports ?? []).length > 0,
@@ -336,17 +377,17 @@ await new Promise((resolve) => setTimeout(resolve, 120));
 const lazy = document.createElement('pre');
 lazy.innerHTML = '<code class="language-mermaid">flowchart LR\n  L[lazy] --> M[manual]</code>';
 document.getElementById('transcript').append(lazy);
-await waitFor(() => lazy.closest('.dsh-mdm') !== null, 5000);
-record('on-demand block adopted', lazy.closest('.dsh-mdm') !== null);
+await waitFor(() => lazy.previousElementSibling !== null, 5000);
+record('on-demand block adopted', lazy.previousElementSibling !== null);
 await new Promise((resolve) => setTimeout(resolve, 500));
-record('on-demand block stays unrendered', lazy.closest('.dsh-mdm')?.getAttribute('data-dsh-mermaid-state') === 'idle',
-  `state=${lazy.closest('.dsh-mdm')?.getAttribute('data-dsh-mermaid-state')}`);
-record('on-demand keeps the source visible', lazy.hidden === false);
+record('on-demand block stays unrendered', lazy.previousElementSibling?.getAttribute('data-dsh-mermaid-state') === 'idle',
+  `state=${lazy.previousElementSibling?.getAttribute('data-dsh-mermaid-state')}`);
+record('on-demand keeps the source visible', lazy.previousElementSibling.querySelector('.dsh-mdm-source pre').hidden === false);
 
-lazy.closest('.dsh-mdm').querySelector('.dsh-mdm-btn').click();
-const lazySvg = await waitFor(() => lazy.closest('.dsh-mdm')?.querySelector('.dsh-mdm-svg svg') !== null, 20000);
-record('on-demand click renders', lazySvg, `state=${lazy.closest('.dsh-mdm')?.getAttribute('data-dsh-mermaid-state')}`);
-record('on-demand click hides the source', lazy.hidden === true);
+lazy.previousElementSibling.querySelector('.dsh-mdm-btn').click();
+const lazySvg = await waitFor(() => lazy.previousElementSibling?.querySelector('.dsh-mdm-svg svg') != null, 20000);
+record('on-demand click renders', lazySvg, `state=${lazy.previousElementSibling?.getAttribute('data-dsh-mermaid-state')}`);
+record('on-demand click hides the source', lazy.previousElementSibling.querySelector('.dsh-mdm-source pre').hidden === true);
 
 settingsRoot.unmount();
 settingsMount.remove();

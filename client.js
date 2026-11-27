@@ -633,12 +633,13 @@ window.__ModuleLoader__.load({
 .dsh-mdm-msg{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#6b7280)}
 .dsh-mdm-source:not([hidden]) + .dsh-mdm-content:not([hidden]) .dsh-mdm-msg{margin-top:8px}
 .dsh-mdm-err{margin:8px 0 0;color:var(--dsw-alias-state-error-primary,#c0392b);white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:18px}
+.dsh-mdm + [data-dsh-mdm-original]{display:none!important}
 .dsh-mdm-source{margin:0}
 .dsh-mdm-source pre{margin:0;padding:0;border:0;background:transparent;overflow:visible}
 .dsh-mdm-source code{font-size:12px}
 `;
 
-		/** Live decorations, keyed by their `<code>` element. */
+		/** 以宿主原始节点为键保存卡片状态。 */
 		const entries = new Map();
 		/** Mounted views asking for decoration; decoration stops when the last one unmounts. */
 		let watchers = 0;
@@ -659,16 +660,66 @@ window.__ModuleLoader__.load({
 		let lastStraySignature = '';
 		let uid = 0;
 
-		/** Live `<pre>` blocks that are not decorated yet. */
+		const genuiSources = new WeakMap();
+		const genuiMermaid = '[data-genui-mermaid], [class*="_mermaidFallback"]';
+
+		/** 从 GenUI 保留的单图围栏读取已完成渲染的图表源码。 */
+		function readGenuiFence(host) {
+			const fence = host.closest('.genui-dom-fence');
+			if (fence === null || fence.querySelectorAll(genuiMermaid).length !== 1) return '';
+			const original = fence.previousElementSibling;
+			if (!original?.hasAttribute('data-genui-rendered')) return '';
+			const text = original.matches('pre') ? original.textContent : original.querySelector('pre')?.textContent;
+			if (!text || text.length > MAX_SOURCE_CHARS * 4) return '';
+			let spec;
+			try {
+				spec = JSON.parse(text);
+			} catch {
+				return '';
+			}
+			const pending = [spec];
+			let source = '';
+			while (pending.length > 0) {
+				const node = pending.pop();
+				if (node === null || typeof node !== 'object') continue;
+				if (node.type === 'mermaid' && typeof node.code === 'string') {
+					if (source !== '') return '';
+					source = node.code;
+				}
+				for (const value of Object.values(node)) pending.push(value);
+			}
+			return source;
+		}
+
+		/** 读取原始节点的源码，GenUI 切换为 SVG 后继续使用已捕获的文本。 */
+		function readSource(original) {
+			if (original.matches('pre')) return original.textContent ?? '';
+			const fallback = original.querySelector(':scope > pre');
+			if (fallback !== null) genuiSources.set(original, fallback.textContent ?? '');
+			return genuiSources.get(original) ?? readGenuiFence(original);
+		}
+
+		/** 在 GenUI 将加载中的源码替换为 SVG 时保留文本。 */
+		function captureGenuiSource(records) {
+			for (const { target, removedNodes } of records) {
+				if (target.nodeType !== Node.ELEMENT_NODE || !target.matches(genuiMermaid)) continue;
+				for (const node of removedNodes) {
+					if (node.nodeType === Node.ELEMENT_NODE && node.matches('pre')) {
+						genuiSources.set(target, node.textContent ?? '');
+					}
+				}
+			}
+		}
+
+		/** 查找普通 Mermaid 代码块和可读取源码的 GenUI 图表。 */
 		function candidates() {
 			const found = [];
-			for (const pre of document.querySelectorAll('pre')) {
-				if (entries.has(pre)) continue;
-				// Never adopt a block that already lives inside a rendered card: a
-				// re-render can hand back the moved node, and a second diagram plugin
-				// (ours or another one) must not wrap an existing card again.
-				if (pre.closest('[data-dsh-mermaid]') !== null) continue;
-				if (isMermaidBlock(pre)) found.push(pre);
+			for (const original of document.querySelectorAll('pre')) {
+				if (entries.has(original) || original.closest('[data-dsh-mermaid], .genui-dom-fence, ' + genuiMermaid) !== null) continue;
+				if (isMermaidBlock(original)) found.push(original);
+			}
+			for (const host of document.querySelectorAll(genuiMermaid)) {
+				if (!entries.has(host) && readSource(host).trim() !== '') found.push(host);
 			}
 			return found;
 		}
@@ -727,7 +778,7 @@ window.__ModuleLoader__.load({
 		 */
 		function paint(entry) {
 			const diagram = entry.state === 'ok' && entry.view === 'diagram';
-			entry.pre.hidden = diagram;
+			entry.sourceCode.parentElement.hidden = diagram;
 			entry.source.hidden = diagram;
 			entry.diagram.hidden = !diagram;
 			if (entry.actions) entry.actions.hidden = !diagram;
@@ -967,12 +1018,12 @@ window.__ModuleLoader__.load({
 			return root;
 		}
 
-		/** Attach one decoration, moving the code block inside our card. */
+		/** 在原始代码块旁插入图表卡片，保留宿主管理的节点和父子关系。 */
 		function adopt(pre) {
 			const parent = pre.parentElement;
 			if (parent == null) return;
 			const entry = {
-				pre,
+				original: pre,
 				state: 'idle',
 				view: 'diagram',
 				hash: '',
@@ -985,7 +1036,12 @@ window.__ModuleLoader__.load({
 			};
 			entry.root = buildCard(entry);
 			parent.insertBefore(entry.root, pre);
-			entry.source.append(pre);
+			const sourcePre = document.createElement('pre');
+			entry.sourceCode = document.createElement('code');
+			entry.sourceCode.textContent = readSource(pre);
+			sourcePre.append(entry.sourceCode);
+			entry.source.append(sourcePre);
+			pre.setAttribute('data-dsh-mdm-original', '');
 			entries.set(pre, entry);
 			paint(entry);
 			if (typeof ResizeObserver === 'function') {
@@ -1009,7 +1065,7 @@ window.__ModuleLoader__.load({
 
 		/** 根据当前源码与主题串行渲染，拒绝已经失效的异步结果。 */
 		function render(entry, immediate = false) {
-			if (!entry.pre.isConnected) return;
+			if (!entry.original.isConnected) return;
 			// Rendering while the reader scrolls is what makes the page stutter:
 			// defer it a beat, then start once the viewport is still.
 			if (!immediate && Date.now() - lastScrollAt < 140) {
@@ -1021,7 +1077,7 @@ window.__ModuleLoader__.load({
 				}
 				return;
 			}
-			const source = entry.pre.textContent ?? '';
+			const source = readSource(entry.original);
 			if (source.trim() === '') {
 				entry.state = 'pending';
 				paint(entry);
@@ -1088,8 +1144,8 @@ window.__ModuleLoader__.load({
 			entry.promise.then(
 				({ rendered: result, renderMs, via = 'inline' }) => {
 					entry.promise = null;
-					if (!entry.pre.isConnected || entries.get(entry.pre) !== entry) return;
-					if (expected !== revision || entry.pre.textContent !== source) {
+					if (!entry.original.isConnected || entries.get(entry.original) !== entry) return;
+					if (expected !== revision || readSource(entry.original) !== source) {
 						// The palette moved while this render was queued; ask again.
 						entry.hash = '';
 						entry.state = 'idle';
@@ -1124,8 +1180,8 @@ window.__ModuleLoader__.load({
 				},
 				(error) => {
 					entry.promise = null;
-					if (!entry.pre.isConnected || entries.get(entry.pre) !== entry) return;
-					if (expected !== revision || entry.pre.textContent !== source) {
+					if (!entry.original.isConnected || entries.get(entry.original) !== entry) return;
+					if (expected !== revision || readSource(entry.original) !== source) {
 						entry.hash = '';
 						entry.state = 'idle';
 						pump(entry);
@@ -1471,21 +1527,26 @@ window.__ModuleLoader__.load({
 			paletteTimer = window.setInterval(step, 1500);
 		}
 
-		/** Sweep decorations whose code block the renderer unmounted. */
+		/** 同步仍在原位的代码块，清理已移除或移位的卡片。 */
 		function sweep() {
 			for (const [pre, entry] of [...entries]) {
-				if (pre.isConnected) continue;
+				if (pre.isConnected && pre.previousElementSibling === entry.root) {
+					const source = readSource(pre);
+					if (entry.sourceCode.textContent !== source) {
+						entry.sourceCode.textContent = source;
+						entry.state = 'idle';
+						entry.hash = '';
+						paint(entry);
+						pump(entry);
+					}
+					continue;
+				}
 				release(entry);
 				entries.delete(pre);
 			}
 		}
 
-		/**
-		 * Detach one decoration and hand its code block back to the document, in the
-		 * place the card occupied. The block is never ours to keep: a view that
-		 * unmounts, or a source the renderer replaced, must leave the Markdown intact.
-		 * @param entry - the decoration to release.
-		 */
+		/** 清理插件创建的卡片和监听，恢复原始代码块的显示。 */
 		function release(entry) {
 			if (lightbox !== null && lightbox.entry === entry) closeLightbox();
 			if (entry.timer !== null) window.clearTimeout(entry.timer);
@@ -1493,11 +1554,8 @@ window.__ModuleLoader__.load({
 			entry.timer = null;
 			entry.resize?.disconnect();
 			entry.resize = null;
-			entry.pre.hidden = false;
-			const root = entry.root;
-			if (root?.parentNode != null) root.parentNode.insertBefore(entry.pre, root);
-			else if (!entry.pre.isConnected) entry.source.append(entry.pre);
-			root?.remove();
+			entry.original.removeAttribute('data-dsh-mdm-original');
+			entry.root.remove();
 		}
 
 		/** One debounced pass over the document: adopt new blocks, drop dead ones. */
@@ -1566,7 +1624,10 @@ window.__ModuleLoader__.load({
 		/** Start decorating the document; idempotent while any view stays mounted. */
 		function start() {
 			if (observer !== null) return;
-			observer = new MutationObserver(() => scan());
+			observer = new MutationObserver((records) => {
+				captureGenuiSource(records);
+				scan();
+			});
 			observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
 			window.addEventListener('scroll', noteScroll, { passive: true });
 			try {

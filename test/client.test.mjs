@@ -252,6 +252,12 @@ assert.equal(hostElement.props['data-dsh-mermaid-style'], PKG);
 console.log('ok   mount              host view renders the package stylesheet');
 //#endregion
 
+/** 查找与原始代码块相邻的插件卡片。 */
+function cardFor(pre) {
+	const sibling = pre.previousElementSibling;
+	return sibling?.matches('.dsh-mdm') ? sibling : null;
+}
+
 //#region adoption (default = on demand)
 const flow = addBlock('mermaid', 'flowchart LR\n  A --> B');
 const plain = addBlock('js', 'const a = 1;');
@@ -270,17 +276,18 @@ window.document.getElementById('transcript').append(inline);
 
 await settle();
 
-const card = flow.pre.closest('.dsh-mdm');
+const card = cardFor(flow.pre);
 assert.ok(card !== null, 'a mermaid block must be adopted into a card');
 assert.equal(card.getAttribute('data-dsh-mermaid'), PKG);
 assert.equal(card.getAttribute('data-dsh-mermaid-state'), 'idle', 'the default mode must not render');
 assert.ok(card.querySelector('.dsh-mdm-btn') !== null, 'the card must carry a view control');
-assert.equal(flow.pre.closest('.dsh-mdm-source') !== null, true, 'the source block must move into the card');
-assert.equal(flow.pre.hidden, false, 'the source must stay visible until render is requested');
+assert.equal(flow.pre.parentElement.id, 'transcript', 'the host must keep the original code block');
+assert.equal(card.querySelector('.dsh-mdm-source pre').textContent, flow.pre.textContent);
+assert.equal(card.querySelector('.dsh-mdm-source pre').hidden, false, 'the source must stay visible until render is requested');
 assert.equal(plain.pre.closest('.dsh-mdm'), null, 'a non-mermaid block must stay untouched');
 assert.equal(inline.closest('.dsh-mdm'), null, 'inline code must stay untouched');
-assert.equal(bare.pre.closest('.dsh-mdm') !== null, true, 'an unlabelled block with a diagram keyword must be adopted');
-assert.equal(barePre.closest('.dsh-mdm') !== null, true, 'a <pre> without a <code> child must be adopted');
+assert.equal(cardFor(bare.pre) !== null, true, 'an unlabelled block with a diagram keyword must be adopted');
+assert.equal(cardFor(barePre) !== null, true, 'a <pre> without a <code> child must be adopted');
 assert.equal(plainPre.closest('.dsh-mdm'), null, 'an unrelated bare <pre> must stay untouched');
 assert.equal(importedModules.length, 0, 'the 3.5 MB runtime must not load before a diagram is requested');
 assert.equal(runtime.renderCount, 0, 'nothing may be rendered in the default mode');
@@ -305,18 +312,18 @@ assert.equal(runtime.config.securityLevel, 'strict');
 assert.equal(runtime.config.htmlLabels, false);
 assert.equal(runtime.config.themeVariables, undefined);
 assert.ok(card.querySelector('.dsh-mdm-svg svg') !== null, 'the diagram must be rendered into the card');
-assert.equal(flow.pre.hidden, true, 'the source must hide once the diagram shows');
+assert.equal(card.querySelector('.dsh-mdm-source pre').hidden, true, 'the source must hide once the diagram shows');
 assert.equal(card.getAttribute('data-dsh-mermaid-state'), 'ok');
 console.log('ok   render on demand   one click renders one diagram and loads the runtime once');
 //#endregion
 
 //#region toggle + cache
 button.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-assert.equal(flow.pre.hidden, false, 'the control must reveal the source');
+assert.equal(card.querySelector('.dsh-mdm-source pre').hidden, false, 'the control must reveal the source');
 assert.ok(card.querySelector('.dsh-mdm-diagram').hidden, 'the control must hide the diagram');
 
 button.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-assert.equal(flow.pre.hidden, true, 'the control must show the diagram again');
+assert.equal(card.querySelector('.dsh-mdm-source pre').hidden, true, 'the control must show the diagram again');
 assert.equal(runtime.renderCount, 1, 'switching views must reuse the rendered diagram, not re-render');
 console.log('ok   cache              switching views reuses the rendered diagram');
 //#endregion
@@ -366,8 +373,8 @@ console.log('ok   viewer             opens, zooms, and closes with Escape and th
 setMode('Always');
 const auto = addBlock('mermaid', 'flowchart LR\n  C --> D');
 await settle();
-assert.ok(auto.pre.closest('.dsh-mdm')?.querySelector('.dsh-mdm-svg svg') !== null, 'always mode must render on adoption');
-assert.equal(auto.pre.hidden, true, 'always mode must show the diagram');
+assert.ok(cardFor(auto.pre)?.querySelector('.dsh-mdm-svg svg') !== null, 'always mode must render on adoption');
+assert.equal(cardFor(auto.pre).querySelector('.dsh-mdm-source pre').hidden, true, 'always mode must show the diagram');
 console.log('ok   mode always        adopts and renders immediately');
 //#endregion
 
@@ -375,7 +382,7 @@ console.log('ok   mode always        adopts and renders immediately');
 setMode('When visible');
 const offscreen = addBlock('mermaid', 'flowchart LR\n  E --> F');
 await settle();
-const offscreenCard = offscreen.pre.closest('.dsh-mdm');
+const offscreenCard = cardFor(offscreen.pre);
 assert.ok(offscreenCard !== null, 'the block must be adopted');
 assert.equal(offscreenCard.querySelector('.dsh-mdm-svg svg'), null, 'an unseen card must not render');
 revealAll();
@@ -388,7 +395,7 @@ console.log('ok   mode visible       renders only once the card is revealed');
 setMode('On demand');
 const later = addBlock('mermaid', 'flowchart LR\n  G --> H');
 await settle();
-assert.equal(later.pre.closest('.dsh-mdm').getAttribute('data-dsh-mermaid-state'), 'idle', 'manual mode must stay lazy');
+assert.equal(cardFor(later.pre).getAttribute('data-dsh-mermaid-state'), 'idle', 'manual mode must stay lazy');
 console.log('ok   mode manual        a later card waits for a request');
 //#endregion
 
@@ -411,13 +418,13 @@ console.log('ok   views              status row and three-mode chooser render');
 //#region failure
 const broken = addBlock('mermaid', 'flowchart LR\n  FAILME --> B');
 await settle();
-const brokenCard = broken.pre.closest('.dsh-mdm');
+const brokenCard = cardFor(broken.pre);
 assert.ok(brokenCard !== null, 'the broken block must still be adopted');
 brokenCard.querySelector('.dsh-mdm-btn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 await settle();
 assert.match(brokenCard.querySelector('.dsh-mdm-msg').textContent, /render|渲染/i);
 assert.match(brokenCard.querySelector('.dsh-mdm-err').textContent, /Parse error/);
-assert.equal(broken.pre.hidden, false, 'a failed diagram must keep the source visible');
+assert.equal(brokenCard.querySelector('.dsh-mdm-source pre').hidden, false, 'a failed diagram must keep the source visible');
 console.log('ok   failure            a render error falls back to the visible source');
 //#endregion
 
@@ -434,11 +441,14 @@ console.log('ok   idempotence        repeated scans never duplicate or re-render
 //#region sweep + teardown
 const orphan = addBlock('mermaid', 'pie title P\n  "a" : 1');
 await settle();
-assert.ok(orphan.pre.closest('.dsh-mdm') !== null, 'the orphan fixture must be decorated');
-orphan.pre.closest('.dsh-mdm').remove();
-orphan.pre.remove();
+const orphanCard = cardFor(orphan.pre);
+assert.ok(orphanCard !== null, 'the orphan fixture must be decorated');
+const transcript = window.document.getElementById('transcript');
+transcript.removeChild(orphan.pre);
 mutate();
 await wait(300);
+assert.equal(orphanCard.isConnected, false, 'host removal must clean up the adjacent card');
+assert.equal(orphan.pre.parentNode, null, 'cleanup must not reinsert the removed block');
 console.log('ok   sweep              a removed code block loses its card');
 
 unmountAll();
@@ -447,13 +457,13 @@ const restored = [...window.document.querySelectorAll('#transcript pre')].filter
 	/flowchart|sequenceDiagram|pie/.test(pre.textContent ?? ''),
 );
 assert.equal(restored.length, 7, 'unmounting must hand every adopted code block back to the document');
-assert.equal(restored.every((pre) => pre.hidden === false), true, 'restored code blocks must be visible again');
+assert.equal(restored.every((pre) => !pre.hasAttribute('data-dsh-mdm-original')), true, 'restored code blocks must be visible again');
 console.log('ok   teardown           unmount removes cards and restores every source block');
 
 // Re-mounting after teardown must decorate again.
 assert.ok(renderView(hostView) !== null);
 await settle();
-assert.ok(flow.pre.closest('.dsh-mdm') !== null, 'a remount must decorate again');
+assert.ok(cardFor(flow.pre) !== null, 'a remount must decorate again');
 assert.equal(mountedEffects.length, 1, 'a remount must register a fresh effect');
 console.log('ok   remount            a second mount decorates the document again');
 //#endregion
