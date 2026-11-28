@@ -13,7 +13,7 @@ Mermaid diagrams for [DeepSeek Harness](https://github.com/deepseek-ai/DeepSeek-
 
 本项目 Fork 自 **[pidongqianqian/dsh-mermaid-plus](https://github.com/pidongqianqian/dsh-mermaid-plus)**，原作者为 **pidongqianqian**，沿用 MIT 许可证。当前 Fork 为 [Songyanglin-curious/dsh-mermaid-plus](https://github.com/Songyanglin-curious/dsh-mermaid-plus)。上游提供了 DSH 集成、图表识别、三种渲染模式、源码切换、全屏查看、缓存及生命周期管理；本次在这些功能基础上改造渲染核心和图形交互。
 
-当前版本为 **`0.5.2`**，适配 DSH `0.2.2-rc.5`；尚未发布到 npm；上方 npm 徽章及 npm 包名指向上游发行版，不代表本 Fork 的改造版本。
+当前版本为 **`0.5.3`**，适配 DSH `0.2.2-rc.5`；尚未发布到 npm；上方 npm 徽章及 npm 包名指向上游发行版，不代表本 Fork 的改造版本。
 
 `0.4.1` 在 `0.4.0` 插槽修复与复杂图测试的基础上，明确声明客户端插槽提供方的加载依赖，同步 Mermaid 运行时版本查询标记，并支持通过 `DSH_RUNTIME_PACKAGE` 指定真实 DSH CLI 运行 Host 集成测试。`@deepseek-ai/dsh` 声明为可选 peer（由启动器提供），当时兼容版本固定为 `0.2.2-rc.1`，不另外安装一份 CLI。
 
@@ -102,10 +102,10 @@ Every rendered diagram can be opened **fullscreen** with zoom and pan, which is 
 
 ### 从 GitHub Release 安装（推荐）
 
-本 Fork 的安装包统一放在 [GitHub Releases](https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases)，不提交到源码仓库。选择已发布版本，使用其 Assets 中的 TGZ 地址安装到 `web` Profile。当前发行版本为 `v0.5.2`：
+本 Fork 的安装包统一放在 [GitHub Releases](https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases)，不提交到源码仓库。选择已发布版本，使用其 Assets 中的 TGZ 地址安装到 `web` Profile。当前发行版本为 `v0.5.3`：
 
 ```sh
-dsh plugin --profile web add https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases/download/v0.5.2/dsh-mermaid-plus-0.5.2.tgz
+dsh plugin --profile web add https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases/download/v0.5.3/dsh-mermaid-plus-0.5.3.tgz
 ```
 
 包内包含离线 Mermaid 运行时，无需克隆源码或构建。安装后重启对应 DSH Profile，并刷新浏览器页面：
@@ -123,7 +123,7 @@ dsh plugin --profile web list
 
 ```sh
 dsh plugin --profile web remove dsh-mermaid-plus
-dsh plugin --profile web add https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases/download/v0.5.2/dsh-mermaid-plus-0.5.2.tgz
+dsh plugin --profile web add https://github.com/Songyanglin-curious/dsh-mermaid-plus/releases/download/v0.5.3/dsh-mermaid-plus-0.5.3.tgz
 ```
 
 重启 Profile、刷新页面，再用 `dsh plugin --profile web list` 核对版本。固定版本 URL 不会自动升级；回退时安装旧版本的 Release TGZ。
@@ -133,8 +133,8 @@ dsh plugin --profile web add https://github.com/Songyanglin-curious/dsh-mermaid-
 也可以从 Release 下载 TGZ 和 `SHA256SUMS.txt`，用 PowerShell 核对 SHA256 与清单一致后安装：
 
 ```powershell
-Get-FileHash ./dsh-mermaid-plus-0.5.2.tgz -Algorithm SHA256
-dsh plugin --profile web add ./dsh-mermaid-plus-0.5.2.tgz
+Get-FileHash ./dsh-mermaid-plus-0.5.3.tgz -Algorithm SHA256
+dsh plugin --profile web add ./dsh-mermaid-plus-0.5.3.tgz
 ```
 
 开发者自行打包使用 `npm ci`、`npm run build`、`npm pack`；生成的 TGZ 不纳入 Git。
